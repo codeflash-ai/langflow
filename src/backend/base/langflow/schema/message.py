@@ -11,10 +11,13 @@ from uuid import UUID
 
 from fastapi.encoders import jsonable_encoder
 from langchain_core.load import load
-from langchain_core.messages import AIMessage, BaseMessage, HumanMessage, SystemMessage
-from langchain_core.prompts import BaseChatPromptTemplate, ChatPromptTemplate, PromptTemplate
+from langchain_core.messages import (AIMessage, BaseMessage, HumanMessage,
+                                     SystemMessage)
+from langchain_core.prompts import (BaseChatPromptTemplate, ChatPromptTemplate,
+                                    PromptTemplate)
 from loguru import logger
-from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_serializer, field_validator
+from pydantic import (BaseModel, ConfigDict, Field, ValidationError,
+                      field_serializer, field_validator)
 
 from langflow.base.prompts.utils import dict_values_to_string
 from langflow.schema.content_block import ContentBlock
@@ -23,12 +26,10 @@ from langflow.schema.data import Data
 from langflow.schema.image import Image, get_file_paths, is_image_file
 from langflow.schema.properties import Properties, Source
 from langflow.schema.validators import timestamp_to_str_validator
-from langflow.utils.constants import (
-    MESSAGE_SENDER_AI,
-    MESSAGE_SENDER_NAME_AI,
-    MESSAGE_SENDER_NAME_USER,
-    MESSAGE_SENDER_USER,
-)
+from langflow.utils.constants import (MESSAGE_SENDER_AI,
+                                      MESSAGE_SENDER_NAME_AI,
+                                      MESSAGE_SENDER_NAME_USER,
+                                      MESSAGE_SENDER_USER)
 from langflow.utils.image import create_data_url
 
 
