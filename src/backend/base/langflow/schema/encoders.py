@@ -3,7 +3,10 @@ from datetime import datetime
 
 
 def encode_callable(obj: Callable):
-    return obj.__name__ if hasattr(obj, "__name__") else str(obj)
+    try:
+        return obj.__name__
+    except AttributeError:
+        return str(obj)
 
 
 def encode_datetime(obj: datetime):
