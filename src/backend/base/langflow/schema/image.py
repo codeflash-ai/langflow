@@ -62,4 +62,4 @@ class Image(BaseModel):
         }
 
     def get_url(self) -> str:
-        return f"{IMAGE_ENDPOINT}{self.path}"
+        return IMAGE_ENDPOINT + self.path
