@@ -117,13 +117,6 @@ class OpenSearchVectorStoreComponent(LCVectorStoreComponent):
     def build_vector_store(self) -> OpenSearchVectorSearch:
         """Builds the OpenSearch Vector Store object."""
         try:
-            from langchain_community.vectorstores import OpenSearchVectorSearch
-        except ImportError as e:
-            error_message = f"Failed to import required modules: {e}"
-            logger.exception(error_message)
-            raise ImportError(error_message) from e
-
-        try:
             opensearch = OpenSearchVectorSearch(
                 index_name=self.index_name,
                 embedding_function=self.embedding,
@@ -146,8 +139,12 @@ class OpenSearchVectorStoreComponent(LCVectorStoreComponent):
 
     def _add_documents_to_vector_store(self, vector_store: "OpenSearchVectorSearch") -> None:
         """Adds documents to the Vector Store."""
+        if not self.ingest_data or not self.embedding:
+            logger.debug("No documents to add to the Vector Store.")
+            return
+
         documents = []
-        for _input in self.ingest_data or []:
+        for _input in self.ingest_data:
             if isinstance(_input, Data):
                 documents.append(_input.to_lc_document())
             else:
@@ -155,16 +152,13 @@ class OpenSearchVectorStoreComponent(LCVectorStoreComponent):
                 logger.error(error_message)
                 raise TypeError(error_message)
 
-        if documents and self.embedding is not None:
-            logger.debug(f"Adding {len(documents)} documents to the Vector Store.")
-            try:
-                vector_store.add_documents(documents)
-            except Exception as e:
-                error_message = f"Error adding documents to Vector Store: {e}"
-                logger.exception(error_message)
-                raise RuntimeError(error_message) from e
-        else:
-            logger.debug("No documents to add to the Vector Store.")
+        logger.debug(f"Adding {len(documents)} documents to the Vector Store.")
+        try:
+            vector_store.add_documents(documents)
+        except Exception as e:
+            error_message = f"Error adding documents to Vector Store: {e}"
+            logger.exception(error_message)
+            raise RuntimeError(error_message) from e
 
     def search(self, query: str | None = None) -> list[dict[str, Any]]:
         """Search for similar documents in the vector store or retrieve all documents if no query is provided."""
