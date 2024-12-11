@@ -14,6 +14,7 @@ from langflow.helpers.flow import list_flows, load_flow, run_flow
 from langflow.schema import Data
 from langflow.services.deps import get_storage_service, get_variable_service, session_scope
 from langflow.services.storage.service import StorageService
+from langflow.services.tracing.schema import Log
 from langflow.template.utils import update_frontend_node_with_template_values
 from langflow.type_extraction.type_extraction import post_process_type
 from langflow.utils import validate
@@ -185,9 +186,8 @@ class CustomComponent(BaseComponent):
 
     @property
     def user_id(self):
-        if hasattr(self, "_user_id") and self._user_id:
-            return self._user_id
-        return self.graph.user_id
+        _user_id = getattr(self, "_user_id", None)
+        return _user_id if _user_id else self.graph.user_id
 
     @property
     def flow_id(self):

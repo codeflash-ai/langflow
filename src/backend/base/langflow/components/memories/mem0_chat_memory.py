@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import logging
 import os
 
@@ -92,11 +94,16 @@ class Mem0MemoryComponent(LCChatMemoryComponent):
             os.environ["OPENAI_API_KEY"] = self.openai_api_key
 
         try:
+            mem0_config_dict = dict(self.mem0_config) if self.mem0_config else None
             if not self.mem0_api_key:
-                return Memory.from_config(config_dict=dict(self.mem0_config)) if self.mem0_config else Memory()
-            if self.mem0_config:
-                return MemoryClient.from_config(api_key=self.mem0_api_key, config_dict=dict(self.mem0_config))
-            return MemoryClient(api_key=self.mem0_api_key)
+                return Memory.from_config(config_dict=mem0_config_dict) if mem0_config_dict else Memory()
+
+            return (
+                MemoryClient.from_config(api_key=self.mem0_api_key, config_dict=mem0_config_dict)
+                if mem0_config_dict
+                else MemoryClient(api_key=self.mem0_api_key)
+            )
+
         except ImportError as e:
             msg = "Mem0 is not properly installed. Please install it with 'pip install -U mem0ai'."
             raise ImportError(msg) from e
@@ -105,7 +112,7 @@ class Mem0MemoryComponent(LCChatMemoryComponent):
         """Ingests a new message into Mem0 memory and returns the updated memory instance."""
         mem0_memory = self.existing_memory or self.build_mem0()
 
-        if not self.ingest_message or not self.user_id:
+        if not (self.ingest_message and self.user_id):
             logger.warning("Missing 'ingest_message' or 'user_id'; cannot ingest data.")
             return mem0_memory
 
