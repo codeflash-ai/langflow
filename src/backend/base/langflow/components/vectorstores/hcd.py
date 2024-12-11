@@ -286,8 +286,8 @@ class HCDVectorStoreComponent(LCVectorStoreComponent):
         }
 
         if self.search_filter:
-            clean_filter = {k: v for k, v in self.search_filter.items() if k and v}
-            if len(clean_filter) > 0:
+            clean_filter = {k: v for k, v in self.search_filter.items() if v}
+            if clean_filter:
                 args["filter"] = clean_filter
         return args
 
