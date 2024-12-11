@@ -16,10 +16,15 @@ def validate_and_repair_json(json_str: str | dict) -> dict[str, Any] | str:
     """
     if not isinstance(json_str, str):
         return json_str
+
     try:
-        # If invalid, attempt repair
-        repaired = repair_json(json_str)
-        return json.loads(repaired)
-    except (json.JSONDecodeError, ImportError):
-        # Return original if repair fails or module not found
-        return json_str
+        # Try to parse the JSON string directly
+        return json.loads(json_str)
+    except json.JSONDecodeError:
+        # If parsing fails, try to repair the json and parse again
+        try:
+            repaired = repair_json(json_str)
+            return json.loads(repaired)
+        except (json.JSONDecodeError, ImportError):
+            # Return original if repair fails or module not found
+            return json_str
