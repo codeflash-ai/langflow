@@ -15,8 +15,10 @@ from typing import TYPE_CHECKING, Any, cast
 
 from loguru import logger
 
+from langflow.custom.custom_component.component import Component
 from langflow.exceptions.component import ComponentBuildError
 from langflow.graph.edge.base import CycleEdge, Edge
+from langflow.graph.edge.schema import EdgeData
 from langflow.graph.graph.constants import Finish, lazy_load_vertex_dict
 from langflow.graph.graph.runnable_vertices_manager import RunnableVerticesManager
 from langflow.graph.graph.schema import GraphData, GraphDump, StartConfigDict, VertexBuildResult
@@ -39,6 +41,7 @@ from langflow.schema.dotdict import dotdict
 from langflow.schema.schema import INPUT_FIELD_NAME, InputType
 from langflow.services.cache.utils import CacheMiss
 from langflow.services.deps import get_chat_service, get_tracing_service
+from langflow.services.tracing.service import TracingService
 from langflow.utils.async_helpers import run_until_complete
 
 if TYPE_CHECKING:
@@ -946,10 +949,10 @@ class Graph:
         return None
 
     def build_parent_child_map(self, vertices: list[Vertex]):
-        parent_child_map = defaultdict(list)
+        self.parent_child_map = defaultdict(list)
         for vertex in vertices:
-            parent_child_map[vertex.id] = [child.id for child in self.get_successors(vertex)]
-        return parent_child_map
+            self.parent_child_map[vertex.id] = [child.id for child in self.get_successors(vertex)]
+        return self.parent_child_map
 
     def increment_run_count(self) -> None:
         self._runs += 1
@@ -1678,7 +1681,7 @@ class Graph:
 
     def get_successors(self, vertex: Vertex) -> list[Vertex]:
         """Returns the successors of a vertex."""
-        return [self.get_vertex(target_id) for target_id in self.successor_map.get(vertex.id, [])]
+        return [self.vertex_map[target_id] for target_id in self.successor_map[vertex.id]]
 
     def get_vertex_neighbors(self, vertex: Vertex) -> dict[Vertex, int]:
         """Returns the neighbors of a vertex."""
