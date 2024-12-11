@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import json
 from collections.abc import Sequence
 from uuid import UUID
@@ -24,18 +26,20 @@ def _get_variable_query(
     flow_id: UUID | None = None,
     limit: int | None = None,
 ):
-    stmt = select(MessageTable).where(MessageTable.error == False)  # noqa: E712
-    if sender:
-        stmt = stmt.where(MessageTable.sender == sender)
-    if sender_name:
-        stmt = stmt.where(MessageTable.sender_name == sender_name)
-    if session_id:
-        stmt = stmt.where(MessageTable.session_id == session_id)
-    if flow_id:
-        stmt = stmt.where(MessageTable.flow_id == flow_id)
+    stmt = select(MessageTable).where(MessageTable.error.is_(False))
+    filters = {
+        MessageTable.sender: sender,
+        MessageTable.sender_name: sender_name,
+        MessageTable.session_id: session_id,
+        MessageTable.flow_id: flow_id,
+    }
+    for col, value in filters.items():
+        if value:
+            stmt = stmt.where(col == value)
     if order_by:
-        col = getattr(MessageTable, order_by).desc() if order == "DESC" else getattr(MessageTable, order_by).asc()
-        stmt = stmt.order_by(col)
+        stmt = stmt.order_by(
+            getattr(MessageTable, order_by).desc() if order == "DESC" else getattr(MessageTable, order_by).asc()
+        )
     if limit:
         stmt = stmt.limit(limit)
     return stmt
