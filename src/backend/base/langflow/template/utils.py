@@ -51,7 +51,12 @@ def update_template_field(new_template, key, previous_value_dict) -> None:
 
 def is_valid_data(frontend_node, raw_frontend_data):
     """Check if the data is valid for processing."""
-    return frontend_node and "template" in frontend_node and raw_frontend_data_is_valid(raw_frontend_data)
+    return (
+        frontend_node
+        and "template" in frontend_node
+        and "template" in raw_frontend_data
+        and "display_name" in raw_frontend_data
+    )
 
 
 def update_template_values(new_template, previous_template) -> None:
