@@ -57,10 +57,8 @@ def is_valid_data(frontend_node, raw_frontend_data):
 def update_template_values(new_template, previous_template) -> None:
     """Updates the frontend template with values from the raw template."""
     for key, previous_value_dict in previous_template.items():
-        if key == "code" or not isinstance(previous_value_dict, dict):
-            continue
-
-        update_template_field(new_template, key, previous_value_dict)
+        if key != "code" and isinstance(previous_value_dict, dict):
+            update_template_field(new_template, key, previous_value_dict)
 
 
 def update_frontend_node_with_template_values(frontend_node, raw_frontend_node):
@@ -70,13 +68,16 @@ def update_frontend_node_with_template_values(frontend_node, raw_frontend_node):
     :param raw_template_data: A dict representing raw template data.
     :return: Updated frontend node.
     """
-    if not is_valid_data(frontend_node, raw_frontend_node):
+    if not (frontend_node and "template" in frontend_node and raw_frontend_data_is_valid(raw_frontend_node)):
         return frontend_node
 
-    update_template_values(frontend_node["template"], raw_frontend_node["template"])
+    frontend_template = frontend_node["template"]
+    raw_template = raw_frontend_node["template"]
 
-    old_code = raw_frontend_node["template"]["code"]["value"]
-    new_code = frontend_node["template"]["code"]["value"]
+    update_template_values(frontend_template, raw_template)
+
+    old_code = raw_template["code"]["value"]
+    new_code = frontend_template["code"]["value"]
     frontend_node["edited"] = raw_frontend_node["edited"] or (old_code != new_code)
 
     return frontend_node
