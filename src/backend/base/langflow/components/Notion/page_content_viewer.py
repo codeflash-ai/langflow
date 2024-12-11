@@ -87,7 +87,7 @@ class NotionPageContent(LCToolComponent):
         return content.strip()
 
     def parse_rich_text(self, rich_text: list) -> str:
-        return "".join(segment.get("plain_text", "") for segment in rich_text)
+        return "".join([segment.get("plain_text", "") for segment in rich_text])
 
     def __call__(self, *args, **kwargs):
         return self._retrieve_page_content(*args, **kwargs)
