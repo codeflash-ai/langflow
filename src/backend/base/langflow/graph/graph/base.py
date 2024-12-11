@@ -15,8 +15,10 @@ from typing import TYPE_CHECKING, Any, cast
 
 from loguru import logger
 
+from langflow.custom.custom_component.component import Component
 from langflow.exceptions.component import ComponentBuildError
 from langflow.graph.edge.base import CycleEdge, Edge
+from langflow.graph.edge.schema import EdgeData
 from langflow.graph.graph.constants import Finish, lazy_load_vertex_dict
 from langflow.graph.graph.runnable_vertices_manager import RunnableVerticesManager
 from langflow.graph.graph.schema import GraphData, GraphDump, StartConfigDict, VertexBuildResult
@@ -39,6 +41,7 @@ from langflow.schema.dotdict import dotdict
 from langflow.schema.schema import INPUT_FIELD_NAME, InputType
 from langflow.services.cache.utils import CacheMiss
 from langflow.services.deps import get_chat_service, get_tracing_service
+from langflow.services.tracing.service import TracingService
 from langflow.utils.async_helpers import run_until_complete
 
 if TYPE_CHECKING:
@@ -922,13 +925,11 @@ class Graph:
         visited.add(vertex_id)
 
         for child_id in self.parent_child_map[vertex_id]:
-            # Only child_id that have an edge with the vertex_id through the output_name
-            # should be marked
             if output_name:
                 edge = self.get_edge(vertex_id, child_id)
                 if edge and edge.source_handle.name != output_name:
                     continue
-            self._mark_branch(child_id, state, visited)
+            self._mark_branch(child_id, state, visited, output_name)
 
     def mark_branch(self, vertex_id: str, state: str, output_name: str | None = None) -> None:
         self._mark_branch(vertex_id=vertex_id, state=state, output_name=output_name)
@@ -2178,3 +2179,7 @@ class Graph:
             predecessor_map[edge.target_id].append(edge.source_id)
             successor_map[edge.source_id].append(edge.target_id)
         return predecessor_map, successor_map
+
+    def _merge_graphs(self, target: Graph, other: Graph) -> None:
+        for vertex in other.vertices:
+            target.add_vertex(vertex)
