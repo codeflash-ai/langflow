@@ -234,15 +234,14 @@ def get_updated_edges(base_flow, g_nodes, g_edges, group_node_id):
 def get_successors(graph: dict[str, dict[str, list[str]]], vertex_id: str) -> list[str]:
     successors_result = []
     stack = [vertex_id]
-    visited = set()
+    visited = {vertex_id}  # initialize with the starting vertex_id to avoid adding it later
     while stack:
         current_id = stack.pop()
-        if current_id in visited:
-            continue
-        visited.add(current_id)
-        if current_id != vertex_id:
-            successors_result.append(current_id)
-        stack.extend(graph[current_id]["successors"])
+        for successor in graph[current_id]["successors"]:
+            if successor not in visited:
+                visited.add(successor)
+                stack.append(successor)
+                successors_result.append(successor)
     return successors_result
 
 
@@ -252,13 +251,12 @@ def get_root_of_group_node(
     """Returns the root of a group node."""
     if vertex_id in parent_node_map.values():
         # Get all vertices with vertex_id as their parent node
-        child_vertices = [v_id for v_id, parent_id in parent_node_map.items() if parent_id == vertex_id]
+        child_vertices = {v_id for v_id, parent_id in parent_node_map.items() if parent_id == vertex_id}
 
-        # Now go through successors of the child vertices
-        # and get the one that none of its successors is in child_vertices
+        # Traverse graph only once for each child to find vertices
         for child_id in child_vertices:
             successors = get_successors(graph, child_id)
-            if not any(successor in child_vertices for successor in successors):
+            if not child_vertices.intersection(successors):  # Check for intersection of sets efficiently
                 return child_id
 
     msg = f"Vertex {vertex_id} is not a top level vertex or no root vertex found"
