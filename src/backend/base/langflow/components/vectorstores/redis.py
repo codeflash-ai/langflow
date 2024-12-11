@@ -47,19 +47,13 @@ class RedisVectorStoreComponent(LCVectorStoreComponent):
 
     @check_cached_vector_store
     def build_vector_store(self) -> Redis:
-        documents = []
-
-        for _input in self.ingest_data or []:
-            if isinstance(_input, Data):
-                documents.append(_input.to_lc_document())
-            else:
-                documents.append(_input)
-        Path("docuemnts.txt").write_text(str(documents), encoding="utf-8")
+        documents = [doc.to_lc_document() if isinstance(doc, Data) else doc for doc in self.ingest_data or []]
+        Path("documents.txt").write_text(str(documents), encoding="utf-8")
 
         if not documents:
             if self.schema is None:
-                msg = "If no documents are provided, a schema must be provided."
-                raise ValueError(msg)
+                raise ValueError("If no documents are provided, a schema must be provided.")
+
             redis_vs = Redis.from_existing_index(
                 embedding=self.embedding,
                 index_name=self.redis_index_name,
@@ -81,7 +75,7 @@ class RedisVectorStoreComponent(LCVectorStoreComponent):
     def search_documents(self) -> list[Data]:
         vector_store = self.build_vector_store()
 
-        if self.search_query and isinstance(self.search_query, str) and self.search_query.strip():
+        if self.search_query and self.search_query.strip():
             docs = vector_store.similarity_search(
                 query=self.search_query,
                 k=self.number_of_results,
