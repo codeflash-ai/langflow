@@ -76,6 +76,5 @@ class CombinatorialReasonerComponent(Component):
         return prompt
 
     def build_reasons(self) -> Data:
-        # list of selected reasons
         final_reasons = [reason[0] for reason in self.reasons]
-        return Data(value=final_reasons)
+        return Data(data={"value": final_reasons})
