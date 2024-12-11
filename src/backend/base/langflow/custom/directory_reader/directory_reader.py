@@ -154,13 +154,12 @@ class DirectoryReader:
     def _is_type_hint_imported(self, type_hint_name: str, code: str) -> bool:
         """Check if a specific type hint is imported from the typing module in the given code."""
         module = ast.parse(code)
-
-        return any(
-            isinstance(node, ast.ImportFrom)
-            and node.module == "typing"
-            and any(alias.name == type_hint_name for alias in node.names)
-            for node in ast.walk(module)
-        )
+        for node in ast.walk(module):
+            if isinstance(node, ast.ImportFrom) and node.module == "typing":
+                for alias in node.names:
+                    if alias.name == type_hint_name:
+                        return True
+        return False
 
     def _is_type_hint_used_in_args(self, type_hint_name: str, code: str) -> bool:
         """Check if a specific type hint is used in the function definitions within the given code."""
