@@ -73,17 +73,15 @@ class ConditionalRouterComponent(Component):
             input_text = input_text.lower()
             match_text = match_text.lower()
 
-        if operator == "equals":
-            return input_text == match_text
-        if operator == "not equals":
-            return input_text != match_text
-        if operator == "contains":
-            return match_text in input_text
-        if operator == "starts with":
-            return input_text.startswith(match_text)
-        if operator == "ends with":
-            return input_text.endswith(match_text)
-        return False
+        ops = {
+            "equals": lambda x, y: x == y,
+            "not equals": lambda x, y: x != y,
+            "contains": lambda x, y: y in x,
+            "starts with": lambda x, y: x.startswith(y),
+            "ends with": lambda x, y: x.endswith(y),
+        }
+
+        return ops.get(operator, lambda x, y: False)(input_text, match_text)
 
     def iterate_and_stop_once(self, route_to_stop: str):
         if not self.__iteration_updated:
