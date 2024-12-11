@@ -1,6 +1,5 @@
 import urllib
 from http import HTTPStatus
-from typing import Any
 
 import requests
 from langchain.pydantic_v1 import BaseModel, Field, create_model
@@ -128,20 +127,20 @@ class AstraDBCQLToolComponent(LCToolComponent):
             return res.status_code
 
     def create_args_schema(self) -> dict[str, BaseModel]:
-        args: dict[str, tuple[Any, Field]] = {}
-
-        for key in self.partition_keys:
-            # Partition keys are mandatory is it doesn't have a static filter
-            if key not in self.static_filters:
-                args[key] = (str, Field(description=self.partition_keys[key]))
+        args = {
+            key: (str, Field(description=self.partition_keys[key]))
+            for key in self.partition_keys
+            if key not in self.static_filters
+        }
 
         for key in self.clustering_keys:
-            # Partition keys are mandatory if has the exclamation mark and doesn't have a static filter
             if key not in self.static_filters:
-                if key.startswith("!"):  # Mandatory
-                    args[key[1:]] = (str, Field(description=self.clustering_keys[key]))
-                else:  # Optional
-                    args[key] = (str | None, Field(description=self.clustering_keys[key], default=None))
+                field_description = Field(description=self.clustering_keys[key])
+                if key.startswith("!"):
+                    key = key[1:]
+                    args[key] = (str, field_description)
+                else:
+                    args[key] = (str | None, field_description, Field(default=None))
 
         model = create_model("ToolInput", **args, __base__=BaseModel)
         return {"ToolInput": model}
@@ -178,6 +177,6 @@ class AstraDBCQLToolComponent(LCToolComponent):
 
     def run_model(self, **args) -> Data | list[Data]:
         results = self.astra_rest(args)
-        data: list[Data] = [Data(data=doc) for doc in results]
+        data = [Data(data=doc) for doc in results]
         self.status = data
         return results
