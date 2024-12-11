@@ -1,5 +1,3 @@
-from pathlib import Path
-
 from langchain.text_splitter import CharacterTextSplitter
 from langchain_community.vectorstores.redis import Redis
 
@@ -47,36 +45,27 @@ class RedisVectorStoreComponent(LCVectorStoreComponent):
 
     @check_cached_vector_store
     def build_vector_store(self) -> Redis:
-        documents = []
-
-        for _input in self.ingest_data or []:
-            if isinstance(_input, Data):
-                documents.append(_input.to_lc_document())
-            else:
-                documents.append(_input)
-        Path("docuemnts.txt").write_text(str(documents), encoding="utf-8")
+        documents = [doc.to_lc_document() if isinstance(doc, Data) else doc for doc in self.ingest_data or []]
 
         if not documents:
             if self.schema is None:
-                msg = "If no documents are provided, a schema must be provided."
-                raise ValueError(msg)
-            redis_vs = Redis.from_existing_index(
+                raise ValueError("If no documents are provided, a schema must be provided.")
+            return Redis.from_existing_index(
                 embedding=self.embedding,
                 index_name=self.redis_index_name,
                 schema=self.schema,
                 key_prefix=None,
                 redis_url=self.redis_server_url,
             )
-        else:
-            text_splitter = CharacterTextSplitter(chunk_size=1000, chunk_overlap=0)
-            docs = text_splitter.split_documents(documents)
-            redis_vs = Redis.from_documents(
-                documents=docs,
-                embedding=self.embedding,
-                redis_url=self.redis_server_url,
-                index_name=self.redis_index_name,
-            )
-        return redis_vs
+
+        text_splitter = CharacterTextSplitter(chunk_size=1000, chunk_overlap=0)
+        docs = text_splitter.split_documents(documents)
+        return Redis.from_documents(
+            documents=docs,
+            embedding=self.embedding,
+            redis_url=self.redis_server_url,
+            index_name=self.redis_index_name,
+        )
 
     def search_documents(self) -> list[Data]:
         vector_store = self.build_vector_store()
