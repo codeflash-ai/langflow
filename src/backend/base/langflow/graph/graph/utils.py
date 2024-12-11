@@ -361,8 +361,10 @@ def find_cycle_edge(entry_point: str, edges: list[tuple[str, str]]) -> tuple[str
         tuple[str, str]: A tuple representing the edge that causes a cycle, or None if no cycle is found.
     """
     # Build the graph as an adjacency list
-    graph = defaultdict(list)
+    graph = {}
     for u, v in edges:
+        if u not in graph:
+            graph[u] = []
         graph[u].append(v)
 
     # Utility function to perform DFS
@@ -370,7 +372,7 @@ def find_cycle_edge(entry_point: str, edges: list[tuple[str, str]]) -> tuple[str
         visited.add(v)
         rec_stack.add(v)
 
-        for neighbor in graph[v]:
+        for neighbor in graph.get(v, []):
             if neighbor not in visited:
                 result = dfs(neighbor, visited, rec_stack)
                 if result:
@@ -381,10 +383,13 @@ def find_cycle_edge(entry_point: str, edges: list[tuple[str, str]]) -> tuple[str
         rec_stack.remove(v)
         return None
 
-    visited: set[str] = set()
-    rec_stack: set[str] = set()
+    visited = set()
+    rec_stack = set()
 
-    return dfs(entry_point, visited, rec_stack)
+    if entry_point in graph:
+        return dfs(entry_point, visited, rec_stack)
+
+    return None
 
 
 def find_all_cycle_edges(entry_point: str, edges: list[tuple[str, str]]) -> list[tuple[str, str]]:
