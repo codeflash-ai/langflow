@@ -140,19 +140,22 @@ def apply_tweaks(node: dict[str, Any], node_tweaks: dict[str, Any]) -> None:
         return
 
     for tweak_name, tweak_value in node_tweaks.items():
-        if tweak_name not in template_data:
+        template_tweak = template_data.get(tweak_name)
+
+        if template_tweak is None:
             continue
-        if tweak_name in template_data:
-            if template_data[tweak_name]["type"] == "NestedDict":
-                value = validate_and_repair_json(tweak_value)
-                template_data[tweak_name]["value"] = value
-            elif isinstance(tweak_value, dict):
-                for k, v in tweak_value.items():
-                    k_ = "file_path" if template_data[tweak_name]["type"] == "file" else k
-                    template_data[tweak_name][k_] = v
-            else:
-                key = "file_path" if template_data[tweak_name]["type"] == "file" else "value"
-                template_data[tweak_name][key] = tweak_value
+
+        tweak_type = template_tweak.get("type")
+
+        if tweak_type == "NestedDict":
+            template_tweak["value"] = validate_and_repair_json(tweak_value)
+        elif isinstance(tweak_value, dict):
+            nested_key = "file_path" if tweak_type == "file" else None
+            for k, v in tweak_value.items():
+                template_tweak[nested_key or k] = v
+        else:
+            key = "file_path" if tweak_type == "file" else "value"
+            template_tweak[key] = tweak_value
 
 
 def apply_tweaks_on_vertex(vertex: Vertex, node_tweaks: dict[str, Any]) -> None:

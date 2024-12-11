@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import json
 from typing import Any
 
@@ -14,12 +16,17 @@ def validate_and_repair_json(json_str: str | dict) -> dict[str, Any] | str:
         Union[Dict[str, Any], str]: The parsed JSON dict if valid/repairable,
         otherwise returns the original string
     """
+    if isinstance(json_str, dict):
+        return json_str
+
     if not isinstance(json_str, str):
         return json_str
-    try:
-        # If invalid, attempt repair
-        repaired = repair_json(json_str)
-        return json.loads(repaired)
-    except (json.JSONDecodeError, ImportError):
-        # Return original if repair fails or module not found
-        return json_str
+
+    if repair_json:
+        try:
+            repaired = repair_json(json_str)
+            return json.loads(repaired)
+        except (json.JSONDecodeError, ImportError):
+            pass
+
+    return json_str
