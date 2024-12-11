@@ -329,14 +329,15 @@ def has_cycle(vertex_ids: list[str], edges: list[tuple[str, str]]) -> bool:
     for u, v in edges:
         graph[u].append(v)
 
-    # Utility function to perform DFS
-    def dfs(v, visited, rec_stack) -> bool:
+    visited = set()
+    rec_stack = set()
+
+    def dfs(v) -> bool:
         visited.add(v)
         rec_stack.add(v)
-
         for neighbor in graph[v]:
             if neighbor not in visited:
-                if dfs(neighbor, visited, rec_stack):
+                if dfs(neighbor):
                     return True
             elif neighbor in rec_stack:
                 return True
@@ -344,10 +345,11 @@ def has_cycle(vertex_ids: list[str], edges: list[tuple[str, str]]) -> bool:
         rec_stack.remove(v)
         return False
 
-    visited: set[str] = set()
-    rec_stack: set[str] = set()
-
-    return any(vertex not in visited and dfs(vertex, visited, rec_stack) for vertex in vertex_ids)
+    for vertex in vertex_ids:
+        if vertex not in visited:
+            if dfs(vertex):
+                return True
+    return False
 
 
 def find_cycle_edge(entry_point: str, edges: list[tuple[str, str]]) -> tuple[str, str]:
