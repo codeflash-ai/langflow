@@ -13,7 +13,10 @@ from pydantic.fields import FieldInfo
 from pydantic_settings import BaseSettings, EnvSettingsSource, PydanticBaseSettingsSource, SettingsConfigDict
 from typing_extensions import override
 
+from langflow.logging.logger import logger
 from langflow.services.settings.constants import VARIABLES_TO_GET_FROM_ENVIRONMENT
+from langflow.utils.version import get_version_info
+from langflow.utils.version import is_pre_release as langflow_is_pre_release
 
 # BASE_COMPONENTS_PATH = str(Path(__file__).parent / "components")
 BASE_COMPONENTS_PATH = str(Path(__file__).parent.parent.parent / "components")
@@ -238,72 +241,54 @@ class Settings(BaseSettings):
     @field_validator("database_url", mode="before")
     @classmethod
     def set_database_url(cls, value, info):
-        if not value:
-            logger.debug("No database_url provided, trying LANGFLOW_DATABASE_URL env variable")
-            if langflow_database_url := os.getenv("LANGFLOW_DATABASE_URL"):
-                value = langflow_database_url
-                logger.debug("Using LANGFLOW_DATABASE_URL env variable.")
-            else:
-                logger.debug("No database_url env variable, using sqlite database")
-                # Originally, we used sqlite:///./langflow.db
-                # so we need to migrate to the new format
-                # if there is a database in that location
-                if not info.data["config_dir"]:
-                    msg = "config_dir not set, please set it or provide a database_url"
-                    raise ValueError(msg)
+        if value:
+            return value
 
-                from langflow.utils.version import get_version_info
-                from langflow.utils.version import is_pre_release as langflow_is_pre_release
+        logger.debug("No database_url provided, trying LANGFLOW_DATABASE_URL env variable")
+        value = os.getenv("LANGFLOW_DATABASE_URL")
 
-                version = get_version_info()["version"]
-                is_pre_release = langflow_is_pre_release(version)
+        if value:
+            logger.debug("Using LANGFLOW_DATABASE_URL env variable.")
+            return value
 
-                if info.data["save_db_in_config_dir"]:
-                    database_dir = info.data["config_dir"]
-                    logger.debug(f"Saving database to config_dir: {database_dir}")
-                else:
-                    database_dir = Path(__file__).parent.parent.parent.resolve()
-                    logger.debug(f"Saving database to langflow directory: {database_dir}")
+        logger.debug("No database_url env variable, using sqlite database")
+        if not info.data["config_dir"]:
+            raise ValueError("config_dir not set, please set it or provide a database_url")
 
-                pre_db_file_name = "langflow-pre.db"
-                db_file_name = "langflow.db"
-                new_pre_path = f"{database_dir}/{pre_db_file_name}"
-                new_path = f"{database_dir}/{db_file_name}"
-                final_path = None
-                if is_pre_release:
-                    if Path(new_pre_path).exists():
-                        final_path = new_pre_path
-                    elif Path(new_path).exists() and info.data["save_db_in_config_dir"]:
-                        # We need to copy the current db to the new location
-                        logger.debug("Copying existing database to new location")
-                        copy2(new_path, new_pre_path)
-                        logger.debug(f"Copied existing database to {new_pre_path}")
-                    elif Path(f"./{db_file_name}").exists() and info.data["save_db_in_config_dir"]:
-                        logger.debug("Copying existing database to new location")
-                        copy2(f"./{db_file_name}", new_pre_path)
-                        logger.debug(f"Copied existing database to {new_pre_path}")
-                    else:
-                        logger.debug(f"Creating new database at {new_pre_path}")
-                        final_path = new_pre_path
-                elif Path(new_path).exists():
-                    logger.debug(f"Database already exists at {new_path}, using it")
-                    final_path = new_path
-                elif Path(f"./{db_file_name}").exists():
-                    try:
-                        logger.debug("Copying existing database to new location")
-                        copy2(f"./{db_file_name}", new_path)
-                        logger.debug(f"Copied existing database to {new_path}")
-                    except Exception:  # noqa: BLE001
-                        logger.exception("Failed to copy database, using default path")
-                        new_path = f"./{db_file_name}"
-                else:
-                    final_path = new_path
+        version = get_version_info()["version"]
+        is_pre_release = langflow_is_pre_release(version)
 
-                if final_path is None:
-                    final_path = new_pre_path if is_pre_release else new_path
+        if info.data["save_db_in_config_dir"]:
+            database_dir = info.data["config_dir"]
+            logger.debug(f"Saving database to config_dir: {database_dir}")
+        else:
+            database_dir = Path(__file__).parent.parent.parent.resolve()
+            logger.debug(f"Saving database to langflow directory: {database_dir}")
 
-                value = f"sqlite:///{final_path}"
+        pre_db_file_name = "langflow-pre.db"
+        db_file_name = "langflow.db"
+        db_file_path = Path(f"{database_dir}/{db_file_name}")
+        pre_db_file_path = Path(f"{database_dir}/{pre_db_file_name}")
 
+        if is_pre_release:
+            final_path = pre_db_file_path if pre_db_file_path.exists() else db_file_path
+        else:
+            final_path = db_file_path
+
+        if not final_path.exists():
+            old_file_path = Path(f"./{db_file_name}")
+            if old_file_path.exists():
+                try:
+                    logger.debug("Copying existing database to new location")
+                    copy2(old_file_path, final_path)
+                    logger.debug(f"Copied existing database to {final_path}")
+                except Exception:
+                    logger.exception("Failed to copy database, using default path")
+                    final_path = old_file_path
+            elif is_pre_release:
+                final_path = pre_db_file_path
+
+        value = f"sqlite:///{final_path}"
         return value
 
     @field_validator("components_path", mode="before")
