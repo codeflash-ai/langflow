@@ -9,8 +9,10 @@ import yaml
 from langchain_core.messages import AIMessage, AIMessageChunk
 from loguru import logger
 
-from langflow.graph.schema import CHAT_COMPONENTS, RECORDS_COMPONENTS, InterfaceComponentTypes, ResultData
-from langflow.graph.utils import UnbuiltObject, log_vertex_build, rewrite_file_path, serialize_field
+from langflow.graph.schema import (CHAT_COMPONENTS, RECORDS_COMPONENTS,
+                                   InterfaceComponentTypes, ResultData)
+from langflow.graph.utils import (UnbuiltObject, log_vertex_build,
+                                  rewrite_file_path, serialize_field)
 from langflow.graph.vertex.base import Vertex
 from langflow.graph.vertex.exceptions import NoComponentInstanceError
 from langflow.schema import Data

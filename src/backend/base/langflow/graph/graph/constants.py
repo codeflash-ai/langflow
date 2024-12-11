@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from langflow.graph.schema import CHAT_COMPONENTS
 from langflow.utils.lazy_load import LazyLoadDictBase
 
@@ -37,11 +39,15 @@ class VertexTypesDict(LazyLoadDictBase):
         return {
             "CustomComponent": types.CustomComponentVertex,
             "Component": types.ComponentVertex,
-            **dict.fromkeys(CHAT_COMPONENTS, types.InterfaceVertex),
+            **{k: types.InterfaceVertex for k in CHAT_COMPONENTS},
         }
 
     def get_custom_component_vertex_type(self):
         return self._types().CustomComponentVertex
+
+    def _get_edges_with_target(self, target_id: str):
+        """Cache computation for get_edge_with_target."""
+        return [edge for edge in self.edges if edge.target_id == target_id]
 
 
 lazy_load_vertex_dict = VertexTypesDict()
