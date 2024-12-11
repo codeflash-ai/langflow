@@ -80,18 +80,22 @@ class SizedLogBuffer:
         self._rsemaphore.acquire()
         try:
             with self._wlock:
-                as_list = list(self.buffer)
-            max_index = -1
-            for i, (ts, _) in enumerate(as_list):
-                if ts >= timestamp:
-                    max_index = i
-                    break
+                if not self.buffer:
+                    return {}
+                # Avoid converting deque to list if we can search directly
+                max_index = -1
+                for i in range(len(self.buffer)):
+                    ts, _ = self.buffer[i]
+                    if ts >= timestamp:
+                        max_index = i
+                        break
             if max_index == -1:
                 return self.get_last_n(lines)
-            rc = {}
             start_from = max(max_index - lines, 0)
-            for i, (ts, msg) in enumerate(as_list):
-                if start_from <= i < max_index:
+            rc = {}
+            with self._wlock:  # Lock again for building the result
+                for i in range(start_from, max_index):
+                    ts, msg = self.buffer[i]
                     rc[ts] = msg
             return rc
         finally:
@@ -101,8 +105,9 @@ class SizedLogBuffer:
         self._rsemaphore.acquire()
         try:
             with self._wlock:
-                as_list = list(self.buffer)
-            return dict(as_list[-last_idx:])
+                if not self.buffer:
+                    return {}
+                return dict(list(self.buffer)[-last_idx:])
         finally:
             self._rsemaphore.release()
 
