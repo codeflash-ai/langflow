@@ -1,6 +1,9 @@
+from __future__ import annotations
+
 from langflow.custom import Component
 from langflow.io import BoolInput, DropdownInput, IntInput, MessageInput, MessageTextInput, Output
 from langflow.schema.message import Message
+from langflow.utils.constants import *
 
 
 class ConditionalRouterComponent(Component):
@@ -70,27 +73,26 @@ class ConditionalRouterComponent(Component):
 
     def evaluate_condition(self, input_text: str, match_text: str, operator: str, *, case_sensitive: bool) -> bool:
         if not case_sensitive:
-            input_text = input_text.lower()
-            match_text = match_text.lower()
+            input_text, match_text = input_text.lower(), match_text.lower()
 
-        if operator == "equals":
-            return input_text == match_text
-        if operator == "not equals":
-            return input_text != match_text
-        if operator == "contains":
-            return match_text in input_text
-        if operator == "starts with":
-            return input_text.startswith(match_text)
-        if operator == "ends with":
-            return input_text.endswith(match_text)
-        return False
+        operations = {
+            "equals": input_text == match_text,
+            "not equals": input_text != match_text,
+            "contains": match_text in input_text,
+            "starts with": input_text.startswith(match_text),
+            "ends with": input_text.endswith(match_text),
+        }
+        return operations.get(operator, False)
 
     def iterate_and_stop_once(self, route_to_stop: str):
         if not self.__iteration_updated:
-            self.update_ctx({f"{self._id}_iteration": self.ctx.get(f"{self._id}_iteration", 0) + 1})
+            iteration_key = f"{self._id}_iteration"
+            iteration_count = self.ctx.get(iteration_key, 0) + 1
+            self.update_ctx({iteration_key: iteration_count})
             self.__iteration_updated = True
-            if self.ctx.get(f"{self._id}_iteration", 0) >= self.max_iterations and route_to_stop == self.default_route:
-                # We need to stop the other route
+
+            if iteration_count >= self.max_iterations and route_to_stop == self.default_route:
+                # Stop the alternate route if needed
                 route_to_stop = "true_result" if route_to_stop == "false_result" else "false_result"
             self.stop(route_to_stop)
 
@@ -106,10 +108,9 @@ class ConditionalRouterComponent(Component):
         return ""
 
     def false_response(self) -> Message | str:
-        result = self.evaluate_condition(
+        if not self.evaluate_condition(
             self.input_text, self.match_text, self.operator, case_sensitive=self.case_sensitive
-        )
-        if not result:
+        ):
             self.status = self.message
             self.iterate_and_stop_once("true_result")
             return self.message
