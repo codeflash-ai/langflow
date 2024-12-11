@@ -172,6 +172,8 @@ class OpenSearchVectorStoreComponent(LCVectorStoreComponent):
             vector_store = self.build_vector_store()
 
             query = query or ""
+            search_kwargs = {"k": self.number_of_results}
+            search_type = self.search_type.lower()
 
             if self.hybrid_search_query.strip():
                 try:
@@ -182,26 +184,7 @@ class OpenSearchVectorStoreComponent(LCVectorStoreComponent):
                     raise ValueError(error_message) from e
 
                 results = vector_store.client.search(index=self.index_name, body=hybrid_query)
-
-                processed_results = []
-                for hit in results.get("hits", {}).get("hits", []):
-                    source = hit.get("_source", {})
-                    text = source.get("text", "")
-                    metadata = source.get("metadata", {})
-
-                    if isinstance(text, dict):
-                        text = text.get("text", "")
-
-                    processed_results.append(
-                        {
-                            "page_content": text,
-                            "metadata": metadata,
-                        }
-                    )
-                return processed_results
-
-            search_kwargs = {"k": self.number_of_results}
-            search_type = self.search_type.lower()
+                return self._process_results(results.get("hits", {}).get("hits", []))
 
             if search_type == "similarity":
                 results = vector_store.similarity_search(query, **search_kwargs)
@@ -252,3 +235,21 @@ class OpenSearchVectorStoreComponent(LCVectorStoreComponent):
 
         self.status = retrieved_data
         return retrieved_data
+
+    def _process_results(self, hits):
+        processed_results = []
+        for hit in hits:
+            source = hit.get("_source", {})
+            text = source.get("text", "")
+            metadata = source.get("metadata", {})
+
+            if isinstance(text, dict):
+                text = text.get("text", "")
+
+            processed_results.append(
+                {
+                    "page_content": text,
+                    "metadata": metadata,
+                }
+            )
+        return processed_results
