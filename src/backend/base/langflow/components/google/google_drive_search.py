@@ -94,13 +94,16 @@ class GoogleDriveSearchComponent(Component):
 
     def generate_file_url(self, file_id: str, mime_type: str) -> str:
         """Generates the appropriate Google Drive URL for a file based on its MIME type."""
-        return {
-            "application/vnd.google-apps.document": f"https://docs.google.com/document/d/{file_id}/edit",
-            "application/vnd.google-apps.spreadsheet": f"https://docs.google.com/spreadsheets/d/{file_id}/edit",
-            "application/vnd.google-apps.presentation": f"https://docs.google.com/presentation/d/{file_id}/edit",
-            "application/vnd.google-apps.drawing": f"https://docs.google.com/drawings/d/{file_id}/edit",
-            "application/pdf": f"https://drive.google.com/file/d/{file_id}/view?usp=drivesdk",
-        }.get(mime_type, f"https://drive.google.com/file/d/{file_id}/view?usp=drivesdk")
+        base_urls = {
+            "application/vnd.google-apps.document": "https://docs.google.com/document/d/",
+            "application/vnd.google-apps.spreadsheet": "https://docs.google.com/spreadsheets/d/",
+            "application/vnd.google-apps.presentation": "https://docs.google.com/presentation/d/",
+            "application/vnd.google-apps.drawing": "https://docs.google.com/drawings/d/",
+            "application/pdf": "https://drive.google.com/file/d/",
+        }
+        base_url = base_urls.get(mime_type, "https://drive.google.com/file/d/")
+        suffix = "/edit" if mime_type in base_urls and mime_type != "application/pdf" else "/view?usp=drivesdk"
+        return f"{base_url}{file_id}{suffix}"
 
     def search_files(self) -> dict:
         # Load the token information from the JSON string
