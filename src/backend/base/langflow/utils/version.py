@@ -1,4 +1,5 @@
 import httpx
+from packaging import version as pkg_version
 
 from langflow.logging.logger import logger
 
@@ -73,17 +74,16 @@ def is_nightly(v: str) -> bool:
 
 
 def fetch_latest_version(package_name: str, *, include_prerelease: bool) -> str | None:
-    from packaging import version as pkg_version
-
     package_name = package_name.replace(" ", "-").lower()
-    try:
-        response = httpx.get(f"https://pypi.org/pypi/{package_name}/json")
-        versions = response.json()["releases"].keys()
-        valid_versions = [v for v in versions if include_prerelease or not is_pre_release(v)]
-        if not valid_versions:
-            return None  # Handle case where no valid versions are found
-        return max(valid_versions, key=pkg_version.parse)
+    url = f"https://pypi.org/pypi/{package_name}/json"
 
+    try:
+        response = httpx.get(url)
+        releases = response.json().get("releases", {}).keys()
+        valid_versions = [v for v in releases if include_prerelease or not is_pre_release(v)]
+        if not valid_versions:
+            return None
+        return max(valid_versions, key=pkg_version.parse)
     except Exception:  # noqa: BLE001
         logger.exception("Error fetching latest version")
         return None

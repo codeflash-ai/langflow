@@ -304,7 +304,9 @@ def get_letter_from_version(version: str) -> str | None:
 
 
 def build_version_notice(current_version: str, package_name: str) -> str:
-    latest_version = fetch_latest_version(package_name, include_prerelease=langflow_is_pre_release(current_version))
+    include_prerelease = langflow_is_pre_release(current_version)
+    latest_version = fetch_latest_version(package_name, include_prerelease=include_prerelease)
+
     if latest_version and pkg_version.parse(current_version) < pkg_version.parse(latest_version):
         release_type = "pre-release" if langflow_is_pre_release(latest_version) else "version"
         return f"A new {release_type} of {package_name} is available: {latest_version}"
