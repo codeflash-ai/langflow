@@ -181,44 +181,54 @@ class HCDVectorStoreComponent(LCVectorStoreComponent):
             from langchain_astradb import AstraDBVectorStore
             from langchain_astradb.utils.astradb import SetupMode
         except ImportError as e:
-            msg = (
+            raise ImportError(
                 "Could not import langchain Astra DB integration package. "
                 "Please install it with `pip install langchain-astradb`."
-            )
-            raise ImportError(msg) from e
+            ) from e
 
         try:
             from astrapy.authentication import UsernamePasswordTokenProvider
             from astrapy.constants import Environment
         except ImportError as e:
-            msg = "Could not import astrapy integration package. Please install it with `pip install astrapy`."
-            raise ImportError(msg) from e
+            raise ImportError(
+                "Could not import astrapy integration package. Please install it with `pip install astrapy`."
+            ) from e
 
-        try:
-            if not self.setup_mode:
-                self.setup_mode = self._inputs["setup_mode"].options[0]
+        if not self.setup_mode:
+            self.setup_mode = self._inputs["setup_mode"].options[0]
 
-            setup_mode_value = SetupMode[self.setup_mode.upper()]
-        except KeyError as e:
-            msg = f"Invalid setup mode: {self.setup_mode}"
-            raise ValueError(msg) from e
+        setup_mode_value = SetupMode[self.setup_mode.upper()]
 
-        if not isinstance(self.embedding, dict):
-            embedding_dict = {"embedding": self.embedding}
-        else:
-            from astrapy.info import CollectionVectorServiceOptions
-
-            dict_options = self.embedding.get("collection_vector_service_options", {})
-            dict_options["authentication"] = {
-                k: v for k, v in dict_options.get("authentication", {}).items() if k and v
+        embedding_dict = (
+            {"embedding": self.embedding}
+            if not isinstance(self.embedding, dict)
+            else {
+                "collection_vector_service_options": CollectionVectorServiceOptions.from_dict(
+                    {
+                        **self.embedding.get("collection_vector_service_options", {}),
+                        "authentication": {
+                            k: v
+                            for k, v in self.embedding.get("collection_vector_service_options", {})
+                            .get("authentication", {})
+                            .items()
+                            if k and v
+                        },
+                        "parameters": {
+                            k: v
+                            for k, v in self.embedding.get("collection_vector_service_options", {})
+                            .get("parameters", {})
+                            .items()
+                            if k and v
+                        },
+                    }
+                ),
+                **(
+                    {"collection_embedding_api_key": self.embedding.get("collection_embedding_api_key")}
+                    if "collection_embedding_api_key" in self.embedding
+                    else {}
+                ),
             }
-            dict_options["parameters"] = {k: v for k, v in dict_options.get("parameters", {}).items() if k and v}
-            embedding_dict = {
-                "collection_vector_service_options": CollectionVectorServiceOptions.from_dict(dict_options)
-            }
-            collection_embedding_api_key = self.embedding.get("collection_embedding_api_key")
-            if collection_embedding_api_key:
-                embedding_dict["collection_embedding_api_key"] = collection_embedding_api_key
+        )
 
         token_provider = UsernamePasswordTokenProvider(self.username, self.password)
         vector_store_kwargs = {
@@ -227,31 +237,24 @@ class HCDVectorStoreComponent(LCVectorStoreComponent):
             "token": token_provider,
             "api_endpoint": self.api_endpoint,
             "namespace": self.namespace,
-            "metric": self.metric or None,
-            "batch_size": self.batch_size or None,
-            "bulk_insert_batch_concurrency": self.bulk_insert_batch_concurrency or None,
-            "bulk_insert_overwrite_concurrency": self.bulk_insert_overwrite_concurrency or None,
-            "bulk_delete_concurrency": self.bulk_delete_concurrency or None,
+            "metric": self.metric,
+            "batch_size": self.batch_size,
+            "bulk_insert_batch_concurrency": self.bulk_insert_batch_concurrency,
+            "bulk_insert_overwrite_concurrency": self.bulk_insert_overwrite_concurrency,
+            "bulk_delete_concurrency": self.bulk_delete_concurrency,
             "setup_mode": setup_mode_value,
             "pre_delete_collection": self.pre_delete_collection or False,
             "environment": Environment.HCD,
+            **({"metadata_indexing_include": self.metadata_indexing_include} if self.metadata_indexing_include else {}),
+            **({"metadata_indexing_exclude": self.metadata_indexing_exclude} if self.metadata_indexing_exclude else {}),
+            **(
+                {"collection_indexing_policy": self.collection_indexing_policy}
+                if self.collection_indexing_policy
+                else {}
+            ),
         }
 
-        if self.metadata_indexing_include:
-            vector_store_kwargs["metadata_indexing_include"] = self.metadata_indexing_include
-        elif self.metadata_indexing_exclude:
-            vector_store_kwargs["metadata_indexing_exclude"] = self.metadata_indexing_exclude
-        elif self.collection_indexing_policy:
-            vector_store_kwargs["collection_indexing_policy"] = self.collection_indexing_policy
-
-        try:
-            vector_store = AstraDBVectorStore(**vector_store_kwargs)
-        except Exception as e:
-            msg = f"Error initializing AstraDBVectorStore: {e}"
-            raise ValueError(msg) from e
-
-        self._add_documents_to_vector_store(vector_store)
-        return vector_store
+        return AstraDBVectorStore(**vector_store_kwargs)
 
     def _add_documents_to_vector_store(self, vector_store) -> None:
         documents = []
@@ -273,48 +276,34 @@ class HCDVectorStoreComponent(LCVectorStoreComponent):
             logger.debug("No documents to add to the Vector Store.")
 
     def _map_search_type(self) -> str:
-        if self.search_type == "Similarity with score threshold":
-            return "similarity_score_threshold"
-        if self.search_type == "MMR (Max Marginal Relevance)":
-            return "mmr"
-        return "similarity"
+        return {
+            "Similarity with score threshold": "similarity_score_threshold",
+            "MMR (Max Marginal Relevance)": "mmr",
+        }.get(self.search_type, "similarity")
 
     def _build_search_args(self):
         args = {
             "k": self.number_of_results,
             "score_threshold": self.search_score_threshold,
         }
-
         if self.search_filter:
             clean_filter = {k: v for k, v in self.search_filter.items() if k and v}
-            if len(clean_filter) > 0:
+            if clean_filter:
                 args["filter"] = clean_filter
         return args
 
     def search_documents(self) -> list[Data]:
         vector_store = self.build_vector_store()
 
-        logger.debug(f"Search input: {self.search_input}")
-        logger.debug(f"Search type: {self.search_type}")
-        logger.debug(f"Number of results: {self.number_of_results}")
-
         if self.search_input and isinstance(self.search_input, str) and self.search_input.strip():
             try:
-                search_type = self._map_search_type()
-                search_args = self._build_search_args()
-
-                docs = vector_store.search(query=self.search_input, search_type=search_type, **search_args)
+                docs = vector_store.search(
+                    query=self.search_input, search_type=self._map_search_type(), **self._build_search_args()
+                )
             except Exception as e:
-                msg = f"Error performing search in AstraDBVectorStore: {e}"
-                raise ValueError(msg) from e
+                raise ValueError(f"Error performing search in AstraDBVectorStore: {e}") from e
 
-            logger.debug(f"Retrieved documents: {len(docs)}")
-
-            data = docs_to_data(docs)
-            logger.debug(f"Converted documents to data: {len(data)}")
-            self.status = data
-            return data
-        logger.debug("No search input provided. Skipping search.")
+            return docs_to_data(docs)
         return []
 
     def get_retriever_kwargs(self):
