@@ -191,8 +191,6 @@ class Settings(BaseSettings):
     def set_user_agent(cls, value):
         if not value:
             value = "Langflow"
-        import os
-
         os.environ["USER_AGENT"] = value
         logger.debug(f"Setting user agent to {value}")
         return value
