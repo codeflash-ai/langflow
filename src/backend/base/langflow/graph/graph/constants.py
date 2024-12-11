@@ -45,9 +45,5 @@ class VertexTypesDict(LazyLoadDictBase):
     def get_custom_component_vertex_type(self):
         return self._types().CustomComponentVertex
 
-    def _get_edges_with_target(self, target_id: str):
-        """Cache computation for get_edge_with_target."""
-        return [edge for edge in self.edges if edge.target_id == target_id]
-
 
 lazy_load_vertex_dict = VertexTypesDict()
