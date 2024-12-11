@@ -27,17 +27,16 @@ class VertexTypesDict(LazyLoadDictBase):
 
     def _build_dict(self):
         langchain_types_dict = self.get_type_dict()
-        return {
-            **langchain_types_dict,
-            "Custom": ["Custom Tool", "Python Function"],
-        }
+        langchain_types_dict["Custom"] = ["Custom Tool", "Python Function"]
+        return langchain_types_dict
 
     def get_type_dict(self):
         types = self._types()
+        chat_component_types = {component: types.InterfaceVertex for component in CHAT_COMPONENTS}
         return {
             "CustomComponent": types.CustomComponentVertex,
             "Component": types.ComponentVertex,
-            **dict.fromkeys(CHAT_COMPONENTS, types.InterfaceVertex),
+            **chat_component_types,
         }
 
     def get_custom_component_vertex_type(self):
