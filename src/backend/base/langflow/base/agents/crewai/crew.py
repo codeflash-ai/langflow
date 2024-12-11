@@ -25,10 +25,10 @@ def _find_api_key(model):
         The API key if found, otherwise None.
     """
     # Define the possible API key attribute patterns
-    key_patterns = ["key", "token"]
+    key_patterns = {"key", "token"}
 
     # Iterate over the model attributes
-    for attr in dir(model):
+    for attr in model.__dict__:
         attr_lower = attr.lower()
 
         # Check if the attribute name contains any of the key patterns
@@ -62,13 +62,9 @@ def convert_llm(llm: Any, excluded_keys=None) -> LLM:
         return llm
 
     # Check if we should use model_name or model
-    if hasattr(llm, "model_name"):
-        model_name = llm.model_name
-    elif hasattr(llm, "model"):
-        model_name = llm.model
-    else:
-        msg = "Could not find model name in the LLM object"
-        raise ValueError(msg)
+    model_name = getattr(llm, "model_name", getattr(llm, "model", None))
+    if not model_name:
+        raise ValueError("Could not find model name in the LLM object")
 
     # Normalize Ollama with prefix TODO: Handle all litellm supported models
     if llm.dict().get("_type") == "chat-ollama":
@@ -82,11 +78,10 @@ def convert_llm(llm: Any, excluded_keys=None) -> LLM:
     api_key = _find_api_key(llm)
 
     # Convert Langchain LLM to CrewAI-compatible LLM object
-    return LLM(
-        model=model_name,
-        api_key=api_key,
-        **{k: v for k, v in llm.dict().items() if k not in excluded_keys},
-    )
+    llm_dict = llm.dict()
+    converted_dict = {k: v for k, v in llm_dict.items() if k not in excluded_keys}
+
+    return LLM(model=model_name, api_key=api_key, **converted_dict)
 
 
 def convert_tools(tools):
