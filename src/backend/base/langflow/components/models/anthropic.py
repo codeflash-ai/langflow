@@ -1,3 +1,4 @@
+from langchain_anthropic.chat_models import ChatAnthropic
 from pydantic.v1 import SecretStr
 
 from langflow.base.models.anthropic_constants import ANTHROPIC_MODELS
@@ -50,23 +51,19 @@ class AnthropicModelComponent(LCModelComponent):
     ]
 
     def build_model(self) -> LanguageModel:  # type: ignore[type-var]
-        try:
-            from langchain_anthropic.chat_models import ChatAnthropic
-        except ImportError as e:
+        if "langchain_anthropic.chat_models.ChatAnthropic" not in globals():
             msg = "langchain_anthropic is not installed. Please install it with `pip install langchain_anthropic`."
-            raise ImportError(msg) from e
-        model = self.model
-        anthropic_api_key = self.anthropic_api_key
-        max_tokens = self.max_tokens
-        temperature = self.temperature
+            raise ImportError(msg)
+
+        anthropic_api_key = SecretStr(self.anthropic_api_key).get_secret_value() if self.anthropic_api_key else None
         anthropic_api_url = self.anthropic_api_url or "https://api.anthropic.com"
 
         try:
             output = ChatAnthropic(
-                model=model,
-                anthropic_api_key=(SecretStr(anthropic_api_key).get_secret_value() if anthropic_api_key else None),
-                max_tokens_to_sample=max_tokens,
-                temperature=temperature,
+                model=self.model,
+                anthropic_api_key=anthropic_api_key,
+                max_tokens_to_sample=self.max_tokens,
+                temperature=self.temperature,
                 anthropic_api_url=anthropic_api_url,
                 streaming=self.stream,
             )
