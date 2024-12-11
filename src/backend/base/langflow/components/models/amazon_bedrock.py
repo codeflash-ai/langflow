@@ -83,16 +83,20 @@ class AmazonBedrockComponent(LCModelComponent):
     ]
 
     def build_model(self) -> LanguageModel:  # type: ignore[type-var]
+        msg = ""
         try:
             from langchain_aws import ChatBedrock
-        except ImportError as e:
+        except ImportError:
             msg = "langchain_aws is not installed. Please install it with `pip install langchain_aws`."
-            raise ImportError(msg) from e
-        try:
-            import boto3
-        except ImportError as e:
-            msg = "boto3 is not installed. Please install it with `pip install boto3`."
-            raise ImportError(msg) from e
+        if not msg:
+            try:
+                import boto3
+            except ImportError:
+                msg = "boto3 is not installed. Please install it with `pip install boto3`."
+        if msg:
+            raise ImportError(msg)
+
+        session = None
         if self.aws_access_key_id or self.aws_secret_access_key:
             try:
                 session = boto3.Session(
@@ -101,20 +105,15 @@ class AmazonBedrockComponent(LCModelComponent):
                     aws_session_token=self.aws_session_token,
                 )
             except Exception as e:
-                msg = "Could not create a boto3 session."
-                raise ValueError(msg) from e
+                raise ValueError("Could not create a boto3 session.") from e
         elif self.credentials_profile_name:
             session = boto3.Session(profile_name=self.credentials_profile_name)
         else:
             session = boto3.Session()
 
-        client_params = {}
-        if self.endpoint_url:
-            client_params["endpoint_url"] = self.endpoint_url
-        if self.region_name:
-            client_params["region_name"] = self.region_name
+        client_params = {"endpoint_url": self.endpoint_url, "region_name": self.region_name}
+        boto3_client = session.client("bedrock-runtime", **{k: v for k, v in client_params.items() if v})
 
-        boto3_client = session.client("bedrock-runtime", **client_params)
         try:
             output = ChatBedrock(
                 client=boto3_client,
@@ -125,6 +124,6 @@ class AmazonBedrockComponent(LCModelComponent):
                 streaming=self.stream,
             )
         except Exception as e:
-            msg = "Could not connect to AmazonBedrock API."
-            raise ValueError(msg) from e
+            raise ValueError("Could not connect to AmazonBedrock API.") from e
+
         return output
