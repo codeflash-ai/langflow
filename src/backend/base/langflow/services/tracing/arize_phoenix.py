@@ -7,16 +7,19 @@ import traceback
 import types
 from datetime import datetime, timezone
 from typing import TYPE_CHECKING, Any
+from uuid import UUID
 
 from langchain_core.documents import Document
 from langchain_core.messages import BaseMessage, HumanMessage, SystemMessage
 from loguru import logger
 from openinference.semconv.trace import OpenInferenceMimeTypeValues, SpanAttributes
+from opentelemetry.propagators.textmap import CarrierT
 from opentelemetry.semconv.trace import SpanAttributes as OTELSpanAttributes
 from opentelemetry.trace import Span, Status, StatusCode
 from opentelemetry.trace.propagation.tracecontext import TraceContextTextMapPropagator
 from typing_extensions import override
 
+from langflow.graph.vertex.base import Vertex
 from langflow.schema.data import Data
 from langflow.schema.message import Message
 from langflow.services.tracing.base import BaseTracer
@@ -182,23 +185,23 @@ class ArizePhoenixTracer(BaseTracer):
             start_time=self._get_current_timestamp(),
         )
 
-        if trace_type == "prompt":
-            child_span.set_attribute(SpanAttributes.OPENINFERENCE_SPAN_KIND, "chain")
-        else:
-            child_span.set_attribute(SpanAttributes.OPENINFERENCE_SPAN_KIND, trace_type)
+        child_span.set_attribute(
+            SpanAttributes.OPENINFERENCE_SPAN_KIND, "chain" if trace_type == "prompt" else trace_type
+        )
 
-        if "session_id" in inputs and len(inputs["session_id"]) > 0 and inputs["session_id"] != self.flow_id:
-            child_span.set_attribute(SpanAttributes.SESSION_ID, inputs["session_id"])
-        else:
-            child_span.set_attribute(SpanAttributes.SESSION_ID, self.flow_id)
+        session_id = inputs.get("session_id")
+        child_span.set_attribute(
+            SpanAttributes.SESSION_ID,
+            session_id if session_id and len(session_id) > 0 and session_id != self.flow_id else self.flow_id,
+        )
 
-        processed_inputs = self._convert_to_arize_phoenix_types(inputs) if inputs else {}
-        if processed_inputs:
+        if inputs:
+            processed_inputs = self._convert_to_arize_phoenix_types(inputs)
             child_span.set_attribute(SpanAttributes.INPUT_VALUE, self._safe_json_dumps(processed_inputs))
             child_span.set_attribute(SpanAttributes.INPUT_MIME_TYPE, OpenInferenceMimeTypeValues.JSON.value)
 
-        processed_metadata = self._convert_to_arize_phoenix_types(metadata) if metadata else {}
-        if processed_metadata:
+        if metadata:
+            processed_metadata = self._convert_to_arize_phoenix_types(metadata)
             for key, value in processed_metadata.items():
                 child_span.set_attribute(f"{SpanAttributes.METADATA}.{key}", value)
 
@@ -309,10 +312,12 @@ class ArizePhoenixTracer(BaseTracer):
             error_message = f"{error.__class__.__name__}: {error}\n\n{string_stacktrace}"
         return error_message
 
+    @staticmethod
     def _get_current_timestamp(self) -> int:
         """Gets the current UTC timestamp in nanoseconds."""
         return int(datetime.now(timezone.utc).timestamp() * 1_000_000_000)
 
+    @staticmethod
     def _safe_json_dumps(self, obj: Any, **kwargs: Any) -> str:
         """A convenience wrapper around `json.dumps` that ensures that any object can be safely encoded."""
         return json.dumps(obj, default=str, ensure_ascii=False, **kwargs)
