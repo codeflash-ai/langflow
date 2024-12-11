@@ -1,3 +1,4 @@
+from anthropic import BadRequestError
 from pydantic.v1 import SecretStr
 
 from langflow.base.models.anthropic_constants import ANTHROPIC_MODELS
@@ -85,12 +86,6 @@ class AnthropicModelComponent(LCModelComponent):
         Returns:
             str: The message from the exception.
         """
-        try:
-            from anthropic import BadRequestError
-        except ImportError:
-            return None
         if isinstance(exception, BadRequestError):
-            message = exception.body.get("error", {}).get("message")
-            if message:
-                return message
+            return exception.body.get("error", {}).get("message")
         return None
