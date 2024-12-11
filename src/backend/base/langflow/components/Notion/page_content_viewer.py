@@ -69,22 +69,25 @@ class NotionPageContent(LCToolComponent):
             return f"Error: An unexpected error occurred while retrieving Notion page content. {e}"
 
     def parse_blocks(self, blocks: list) -> str:
-        content = ""
+        content = []
+        parse_rich_text = self.parse_rich_text  # Local variable for faster access
+
         for block in blocks:
             block_type = block.get("type")
+            rich_text = block.get(block_type, {}).get("rich_text", [])
             if block_type in {"paragraph", "heading_1", "heading_2", "heading_3", "quote"}:
-                content += self.parse_rich_text(block[block_type].get("rich_text", [])) + "\n\n"
-            elif block_type in {"bulleted_list_item", "numbered_list_item"}:
-                content += self.parse_rich_text(block[block_type].get("rich_text", [])) + "\n"
-            elif block_type == "to_do":
-                content += self.parse_rich_text(block["to_do"].get("rich_text", [])) + "\n"
+                content.append(parse_rich_text(rich_text) + "\n\n")
+            elif block_type in {"bulleted_list_item", "numbered_list_item", "to_do"}:
+                content.append(parse_rich_text(rich_text) + "\n")
             elif block_type == "code":
-                content += self.parse_rich_text(block["code"].get("rich_text", [])) + "\n\n"
+                content.append(parse_rich_text(rich_text) + "\n\n")
             elif block_type == "image":
-                content += f"[Image: {block['image'].get('external', {}).get('url', 'No URL')}]\n\n"
+                url = block["image"].get("external", {}).get("url", "No URL")
+                content.append(f"[Image: {url}]\n\n")
             elif block_type == "divider":
-                content += "---\n\n"
-        return content.strip()
+                content.append("---\n\n")
+
+        return "".join(content).strip()
 
     def parse_rich_text(self, rich_text: list) -> str:
         return "".join(segment.get("plain_text", "") for segment in rich_text)
