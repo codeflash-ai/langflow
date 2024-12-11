@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import requests
 from requests.auth import HTTPBasicAuth
 
@@ -60,7 +62,6 @@ class CombinatorialReasonerComponent(Component):
             "apiKey": self.openai_api_key,
             "model": self.model_name,
         }
-
         creds = HTTPBasicAuth(self.username, password=self.password)
         response = requests.post(
             "https://cr-api.icosacomputing.com/cr/langflow",
@@ -69,11 +70,9 @@ class CombinatorialReasonerComponent(Component):
             timeout=100,
         )
         response.raise_for_status()
-
-        prompt = response.json()["prompt"]
-
-        self.reasons = response.json()["finalReasons"]
-        return prompt
+        response_data = response.json()
+        self.reasons = response_data["finalReasons"]
+        return response_data["prompt"]
 
     def build_reasons(self) -> Data:
         # list of selected reasons
