@@ -1,13 +1,14 @@
-import re
 from abc import abstractmethod
 from typing import TYPE_CHECKING, cast
 
-from langchain.agents import AgentExecutor, BaseMultiActionAgent, BaseSingleActionAgent
+from langchain.agents import (AgentExecutor, BaseMultiActionAgent,
+                              BaseSingleActionAgent)
 from langchain.agents.agent import RunnableAgent
 from langchain_core.runnables import Runnable
 
 from langflow.base.agents.callback import AgentAsyncHandler
-from langflow.base.agents.events import ExceptionWithMessageError, process_agent_events
+from langflow.base.agents.events import (ExceptionWithMessageError,
+                                         process_agent_events)
 from langflow.base.agents.utils import data_to_messages
 from langflow.custom import Component
 from langflow.custom.custom_component.component import _get_component_toolkit
@@ -183,15 +184,17 @@ class LCAgentComponent(Component):
 
     def validate_tool_names(self) -> None:
         """Validate tool names to ensure they match the required pattern."""
-        pattern = re.compile(r"^[a-zA-Z0-9_-]+$")
         if hasattr(self, "tools") and self.tools:
-            for tool in self.tools:
-                if not pattern.match(tool.name):
-                    msg = (
-                        f"Invalid tool name '{tool.name}': must only contain letters, numbers, underscores, dashes,"
-                        " and cannot contain spaces."
-                    )
-                    raise ValueError(msg)
+            invalid_tool = next(
+                (tool.name for tool in self.tools if not self.pattern.match(tool.name)),
+                None,
+            )
+            if invalid_tool:
+                msg = (
+                    f"Invalid tool name '{invalid_tool}': must only contain letters, numbers, underscores, dashes,"
+                    " and cannot contain spaces."
+                )
+                raise ValueError(msg)
 
 
 class LCToolsAgentComponent(LCAgentComponent):

@@ -41,16 +41,18 @@ class ToolCallingAgentComponent(LCToolsAgentComponent):
         return self.chat_history
 
     def create_agent_runnable(self):
-        messages = [
-            ("system", "{system_prompt}"),
-            ("placeholder", "{chat_history}"),
-            ("human", "{input}"),
-            ("placeholder", "{agent_scratchpad}"),
-        ]
-        prompt = ChatPromptTemplate.from_messages(messages)
+        prompt = ChatPromptTemplate.from_messages(
+            [
+                ("system", "{system_prompt}"),
+                ("placeholder", "{chat_history}"),
+                ("human", "{input}"),
+                ("placeholder", "{agent_scratchpad}"),
+            ]
+        )
         self.validate_tool_names()
         try:
             return create_tool_calling_agent(self.llm, self.tools or [], prompt)
         except NotImplementedError as e:
-            message = f"{self.display_name} does not support tool calling. Please try using a compatible model."
-            raise NotImplementedError(message) from e
+            raise NotImplementedError(
+                f"{self.display_name} does not support tool calling. Please try using a compatible model."
+            ) from e
