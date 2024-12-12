@@ -60,5 +60,5 @@ class ApiKeyRead(ApiKeyBase):
     @field_validator("api_key")
     @classmethod
     def mask_api_key(cls, v) -> str:
-        # This validator will always run, and will mask the API key
-        return f"{v[:8]}{'*' * (len(v) - 8)}"
+        # Directly concatenate the strings for efficiency
+        return v[:8] + "*" * (len(v) - 8)
