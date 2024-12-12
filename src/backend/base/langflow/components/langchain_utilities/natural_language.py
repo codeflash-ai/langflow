@@ -4,7 +4,6 @@ from langchain_text_splitters import NLTKTextSplitter, TextSplitter
 
 from langflow.base.textsplitters.model import LCTextSplitterComponent
 from langflow.inputs import DataInput, IntInput, MessageTextInput
-from langflow.utils.util import unescape_string
 
 
 class NaturalLanguageTextSplitterComponent(LCTextSplitterComponent):
@@ -51,9 +50,16 @@ class NaturalLanguageTextSplitterComponent(LCTextSplitterComponent):
         return self.data_input
 
     def build_text_splitter(self) -> TextSplitter:
-        separator = unescape_string(self.separator) if self.separator else "\n\n"
+        separator = self.separator
+        if separator:
+            separator = separator.replace("\\n", "\n")
+        else:
+            separator = "\n\n"
+
+        language = "english" if not self.language else self.language.lower()
+
         return NLTKTextSplitter(
-            language=self.language.lower() if self.language else "english",
+            language=language,
             separator=separator,
             chunk_size=self.chunk_size,
             chunk_overlap=self.chunk_overlap,
