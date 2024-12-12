@@ -53,14 +53,10 @@ class AlterMetadataComponent(Component):
     def _as_clean_dict(self, obj):
         """Convert a Data object or a standard dictionary to a standard dictionary."""
         if isinstance(obj, dict):
-            as_dict = obj
-        elif isinstance(obj, Data):
-            as_dict = obj.data
-        else:
-            msg = f"Expected a Data object or a dictionary but got {type(obj)}."
-            raise TypeError(msg)
-
-        return {k: v for k, v in (as_dict or {}).items() if k and k.strip()}
+            return {k: v for k, v in obj.items() if k and k.strip()}
+        if isinstance(obj, Data):
+            return {k: v for k, v in obj.data.items() if k and k.strip()}
+        raise TypeError(f"Expected a Data object or a dictionary but got {type(obj)}.")
 
     def process_output(self) -> list[Data]:
         # Ensure metadata is a dictionary, filtering out any empty keys
