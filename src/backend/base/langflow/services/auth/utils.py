@@ -1,8 +1,11 @@
+from __future__ import annotations
+
 import base64
-import random
+import hashlib
 import warnings
 from collections.abc import Coroutine
 from datetime import datetime, timedelta, timezone
+from functools import cache, lru_cache
 from typing import TYPE_CHECKING, Annotated
 from uuid import UUID
 
@@ -348,19 +351,18 @@ def add_padding(s):
     return s + "=" * padding_needed
 
 
+@cache
 def ensure_valid_key(s: str) -> bytes:
     # If the key is too short, we'll use it as a seed to generate a valid key
-    if len(s) < MINIMUM_KEY_LENGTH:
-        # Use the input as a seed for the random number generator
-        random.seed(s)
-        # Generate 32 random bytes
-        key = bytes(random.getrandbits(8) for _ in range(32))
+    if len(s) < 32:
+        key = hashlib.sha256(s.encode()).digest()
         key = base64.urlsafe_b64encode(key)
     else:
-        key = add_padding(s).encode()
+        key = add_padding(s).encode()  # Assuming add_padding is defined elsewhere
     return key
 
 
+@lru_cache(maxsize=1)
 def get_fernet(settings_service: SettingsService):
     secret_key: str = settings_service.auth_settings.SECRET_KEY.get_secret_value()
     valid_key = ensure_valid_key(secret_key)
