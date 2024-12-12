@@ -86,56 +86,40 @@ class AssemblyAILeMUR(Component):
     def run_lemur(self) -> Data:
         """Use the LeMUR task endpoint to input the LLM prompt."""
         aai.settings.api_key = self.api_key
+        error = None
 
         if not self.transcription_result and not self.transcript_ids:
             error = "Either a Transcription Result or Transcript IDs must be provided"
-            self.status = error
-            return Data(data={"error": error})
-        if self.transcription_result and self.transcription_result.data.get("error"):
-            # error message from the previous step
-            self.status = self.transcription_result.data["error"]
-            return self.transcription_result
-        if self.endpoint == "task" and not self.prompt:
-            self.status = "No prompt specified for the task endpoint"
-            return Data(data={"error": "No prompt specified"})
-        if self.endpoint == "question-answer" and not self.questions:
+        elif self.transcription_result and self.transcription_result.data.get("error"):
+            error = self.transcription_result.data["error"]
+        elif self.endpoint == "task" and not self.prompt:
+            error = "No prompt specified for the task endpoint"
+        elif self.endpoint == "question-answer" and not self.questions:
             error = "No Questions were provided for the question-answer endpoint"
+
+        if error:
             self.status = error
             return Data(data={"error": error})
 
-        # Check for valid transcripts
-        transcript_ids = None
-        if self.transcription_result and "id" in self.transcription_result.data:
-            transcript_ids = [self.transcription_result.data["id"]]
-        elif self.transcript_ids:
-            transcript_ids = self.transcript_ids.split(",") or []
-            transcript_ids = [t.strip() for t in transcript_ids]
+        transcript_ids = (
+            [self.transcription_result.data["id"]] if self.transcription_result else self.transcript_ids.split(",")
+        )
+        transcript_group = aai.TranscriptGroup(transcript_ids=transcript_ids).wait_for_completion(return_failures=True)
 
-        if not transcript_ids:
-            error = "Either a valid Transcription Result or valid Transcript IDs must be provided"
+        if transcript_group[1]:
+            error = f"Getting transcriptions failed: {transcript_group[1][0]}"
+        elif any(t.status == aai.TranscriptStatus.error for t in transcript_group[0].transcripts):
+            error = next(t.error for t in transcript_group[0].transcripts if t.status == aai.TranscriptStatus.error)
+
+        if error:
             self.status = error
             return Data(data={"error": error})
 
-        # Get TranscriptGroup and check if there is any error
-        transcript_group = aai.TranscriptGroup(transcript_ids=transcript_ids)
-        transcript_group, failures = transcript_group.wait_for_completion(return_failures=True)
-        if failures:
-            error = f"Getting transcriptions failed: {failures[0]}"
-            self.status = error
-            return Data(data={"error": error})
-
-        for t in transcript_group.transcripts:
-            if t.status == aai.TranscriptStatus.error:
-                self.status = t.error
-                return Data(data={"error": t.error})
-
-        # Perform LeMUR action
         try:
-            response = self.perform_lemur_action(transcript_group, self.endpoint)
+            response = self.perform_lemur_action(transcript_group[0], self.endpoint)
         except Exception as e:  # noqa: BLE001
             logger.opt(exception=True).debug("Error running LeMUR")
-            error = f"An Error happened: {e}"
-            self.status = error
+            self.status = error = f"An Error happened: {e}"
             return Data(data={"error": error})
 
         result = Data(data=response)
@@ -144,33 +128,17 @@ class AssemblyAILeMUR(Component):
 
     def perform_lemur_action(self, transcript_group: aai.TranscriptGroup, endpoint: str) -> dict:
         logger.info("Endpoint:", endpoint, type(endpoint))
-        if endpoint == "task":
-            result = transcript_group.lemur.task(
-                prompt=self.prompt,
-                final_model=self.get_final_model(self.final_model),
-                temperature=self.temperature,
-                max_output_size=self.max_output_size,
-            )
-        elif endpoint == "summary":
-            result = transcript_group.lemur.summarize(
-                final_model=self.get_final_model(self.final_model),
-                temperature=self.temperature,
-                max_output_size=self.max_output_size,
-            )
-        elif endpoint == "question-answer":
-            questions = self.questions.split(",")
-            questions = [aai.LemurQuestion(question=q) for q in questions]
-            result = transcript_group.lemur.question(
-                questions=questions,
-                final_model=self.get_final_model(self.final_model),
-                temperature=self.temperature,
-                max_output_size=self.max_output_size,
-            )
-        else:
-            msg = f"Endpoint not supported: {endpoint}"
-            raise ValueError(msg)
-
-        return result.dict()
+        lemur = transcript_group.lemur
+        final_model = self.get_final_model(self.final_model)
+        return getattr(lemur, endpoint)(
+            prompt=self.prompt if endpoint == "task" else None,
+            final_model=final_model,
+            temperature=self.temperature,
+            max_output_size=self.max_output_size,
+            questions=[aai.LemurQuestion(question=q) for q in self.questions.split(",")]
+            if endpoint == "question-answer"
+            else None,
+        ).dict()
 
     def get_final_model(self, model_name: str) -> aai.LemurModel:
         if model_name == "claude3_5_sonnet":
