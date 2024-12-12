@@ -15,8 +15,10 @@ from typing import TYPE_CHECKING, Any, cast
 
 from loguru import logger
 
+from langflow.custom.custom_component.component import Component
 from langflow.exceptions.component import ComponentBuildError
 from langflow.graph.edge.base import CycleEdge, Edge
+from langflow.graph.edge.schema import EdgeData
 from langflow.graph.graph.constants import Finish, lazy_load_vertex_dict
 from langflow.graph.graph.runnable_vertices_manager import RunnableVerticesManager
 from langflow.graph.graph.schema import GraphData, GraphDump, StartConfigDict, VertexBuildResult
@@ -39,6 +41,7 @@ from langflow.schema.dotdict import dotdict
 from langflow.schema.schema import INPUT_FIELD_NAME, InputType
 from langflow.services.cache.utils import CacheMiss
 from langflow.services.deps import get_chat_service, get_tracing_service
+from langflow.services.tracing.service import TracingService
 from langflow.utils.async_helpers import run_until_complete
 
 if TYPE_CHECKING:
@@ -2178,3 +2181,67 @@ class Graph:
             predecessor_map[edge.target_id].append(edge.source_id)
             successor_map[edge.source_id].append(edge.target_id)
         return predecessor_map, successor_map
+
+    def _initialize_structures(self):
+        self._is_input_vertices = self._is_output_vertices = self._is_state_vertices = []
+        self.has_session_id_vertices = self._sorted_vertices_layers = self._call_order = []
+        self._snapshots = []
+        self.inactivated_vertices = set()
+        self.activated_vertices = []
+        self.vertices_layers = []
+        self.vertices_to_run = set()
+        self.vertices = []
+        self.edges = []
+        self.run_manager = RunnableVerticesManager()
+        self.state_manager = GraphStateManager()
+        self._vertices = []
+        self._edges = []
+        self.top_level_vertices = []
+        self.vertex_map = {}
+        self.predecessor_map = defaultdict(list)
+        self.successor_map = defaultdict(list)
+        self.in_degree_map = defaultdict(int)
+        self.parent_child_map = defaultdict(list)
+        self._run_queue = deque()
+        self._first_layer = []
+        self._lock = asyncio.Lock()
+        self.raw_graph_data = {"nodes": [], "edges": []}
+        self._is_cyclic = None
+        self._cycles = self._cycle_vertices = None
+        self._end_trace_tasks = set()
+
+    def _initialize_tracing_service(self):
+        try:
+            return get_tracing_service()
+        except Exception:  # noqa: BLE001
+            logger.exception("Error getting tracing service")
+            return None
+
+    def _create_deepcopy_graph(self, memo):
+        if self._start is not None and self._end is not None:
+            start_copy = copy.deepcopy(self._start, memo)
+            end_copy = copy.deepcopy(self._end, memo)
+            return type(self)(
+                start_copy,
+                end_copy,
+                copy.deepcopy(self.flow_id, memo),
+                copy.deepcopy(self.flow_name, memo),
+                copy.deepcopy(self.user_id, memo),
+            )
+        new_graph = type(self)(
+            None,
+            None,
+            copy.deepcopy(self.flow_id, memo),
+            copy.deepcopy(self.flow_name, memo),
+            copy.deepcopy(self.user_id, memo),
+        )
+        new_graph.add_nodes_and_edges(copy.deepcopy(self._vertices, memo), copy.deepcopy(self._edges, memo))
+        return new_graph
+
+    @staticmethod
+    def _deserialize_run_manager(run_manager):
+        return (
+            run_manager
+            if isinstance(run_manager, RunnableVerticesManager)
+            else RunnableVerticesManager.from_dict(run_manager)
+        )
