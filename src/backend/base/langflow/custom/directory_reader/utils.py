@@ -6,13 +6,8 @@ from langflow.template.frontend_node.custom_components import CustomComponentFro
 
 def merge_nested_dicts_with_renaming(dict1, dict2):
     for key, value in dict2.items():
-        if key in dict1 and isinstance(value, dict) and isinstance(dict1.get(key), dict):
-            for sub_key, sub_value in value.items():
-                # if sub_key in dict1[key]:
-                #     new_key = get_new_key(dict1[key], sub_key)
-                #     dict1[key][new_key] = sub_value
-                # else:
-                dict1[key][sub_key] = sub_value
+        if isinstance(value, dict) and isinstance(dict1.get(key), dict):
+            dict1[key].update(value)
         else:
             dict1[key] = value
     return dict1
