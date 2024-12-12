@@ -11,12 +11,14 @@ from collections import defaultdict, deque
 from datetime import datetime, timezone
 from functools import partial
 from itertools import chain
-from typing import TYPE_CHECKING, Any, cast
+from typing import TYPE_CHECKING, Any
 
 from loguru import logger
 
+from langflow.custom.custom_component.component import Component
 from langflow.exceptions.component import ComponentBuildError
 from langflow.graph.edge.base import CycleEdge, Edge
+from langflow.graph.edge.schema import EdgeData
 from langflow.graph.graph.constants import Finish, lazy_load_vertex_dict
 from langflow.graph.graph.runnable_vertices_manager import RunnableVerticesManager
 from langflow.graph.graph.schema import GraphData, GraphDump, StartConfigDict, VertexBuildResult
@@ -39,10 +41,11 @@ from langflow.schema.dotdict import dotdict
 from langflow.schema.schema import INPUT_FIELD_NAME, InputType
 from langflow.services.cache.utils import CacheMiss
 from langflow.services.deps import get_chat_service, get_tracing_service
+from langflow.services.tracing.service import TracingService
 from langflow.utils.async_helpers import run_until_complete
 
 if TYPE_CHECKING:
-    from collections.abc import Generator, Iterable
+    from collections.abc import Generator
 
     from langflow.api.v1.schemas import InputValueRequest
     from langflow.custom.custom_component.component import Component
@@ -1720,32 +1723,22 @@ class Graph:
 
     def _build_edges(self) -> list[CycleEdge]:
         """Builds the edges of the graph."""
-        # Edge takes two vertices as arguments, so we need to build the vertices first
-        # and then build the edges
-        # if we can't find a vertex, we raise an error
-        edges: set[CycleEdge | Edge] = set()
-        for edge in self._edges:
-            new_edge = self.build_edge(edge)
-            edges.add(new_edge)
-        if self.vertices and not edges:
-            logger.warning("Graph has vertices but no edges")
-        return list(cast("Iterable[CycleEdge]", edges))
+        return [self.build_edge(edge) for edge in self._edges]
 
     def build_edge(self, edge: EdgeData) -> CycleEdge | Edge:
         source = self.get_vertex(edge["source"])
         target = self.get_vertex(edge["target"])
 
         if source is None:
-            msg = f"Source vertex {edge['source']} not found"
-            raise ValueError(msg)
+            raise ValueError(f"Source vertex {edge['source']} not found")
         if target is None:
-            msg = f"Target vertex {edge['target']} not found"
-            raise ValueError(msg)
-        if any(v in self.cycle_vertices for v in [source.id, target.id]):
-            new_edge: CycleEdge | Edge = CycleEdge(source, target, edge)
-        else:
-            new_edge = Edge(source, target, edge)
-        return new_edge
+            raise ValueError(f"Target vertex {edge['target']} not found")
+
+        return (
+            CycleEdge(source, target, edge)
+            if any(v in self.cycle_vertices for v in [source.id, target.id])
+            else Edge(source, target, edge)
+        )
 
     def _get_vertex_class(self, node_type: str, node_base_type: str, node_id: str) -> type[Vertex]:
         """Returns the node class based on the node type."""
