@@ -89,13 +89,9 @@ class BaseInputMixin(BaseModel, validate_assignment=True):  # type: ignore[call-
     def to_dict(self):
         return self.model_dump(exclude_none=True, by_alias=True)
 
-    @field_validator("field_type", mode="before")
     @classmethod
     def validate_field_type(cls, v):
-        try:
-            return FieldTypes(v)
-        except ValueError:
-            return FieldTypes.OTHER
+        return FieldTypes(v) if v in FieldTypes.__members__.values() else FieldTypes.OTHER
 
     @model_serializer(mode="wrap")
     def serialize_model(self, handler):
