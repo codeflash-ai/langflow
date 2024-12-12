@@ -41,6 +41,6 @@ class NotifyComponent(CustomComponent):
         return data
 
     def _set_successors_ids(self):
-        self._vertex.is_state = True
-        successors = self._vertex.graph.successor_map.get(self._vertex.id, [])
-        return successors + self._vertex.graph.activated_vertices
+        v = self._vertex
+        successors = v.graph.successor_map.get(v.id, [])
+        return successors + v.graph.activated_vertices
