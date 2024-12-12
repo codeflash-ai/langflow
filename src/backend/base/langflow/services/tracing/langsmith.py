@@ -5,10 +5,12 @@ import traceback
 import types
 from datetime import datetime, timezone
 from typing import TYPE_CHECKING, Any
+from uuid import UUID
 
 from loguru import logger
 
 from langflow.schema.data import Data
+from langflow.schema.message import Message
 from langflow.services.tracing.base import BaseTracer
 
 if TYPE_CHECKING:
@@ -87,30 +89,24 @@ class LangSmithTracer(BaseTracer):
         self._child_link: dict[str, str] = {}
 
     def _convert_to_langchain_types(self, io_dict: dict[str, Any]):
-        converted = {}
-        for key, value in io_dict.items():
-            converted[key] = self._convert_to_langchain_type(value)
-        return converted
+        return {key: self._convert_to_langchain_type(value) for key, value in io_dict.items()}
 
     def _convert_to_langchain_type(self, value):
-        from langflow.schema.message import Message
-
         if isinstance(value, dict):
-            value = {key: self._convert_to_langchain_type(val) for key, val in value.items()}
-        elif isinstance(value, list):
-            value = [self._convert_to_langchain_type(v) for v in value]
-        elif isinstance(value, Message):
+            return {key: self._convert_to_langchain_type(val) for key, val in value.items()}
+        if isinstance(value, list):
+            return [self._convert_to_langchain_type(v) for v in value]
+        if isinstance(value, Message):
             if "prompt" in value:
-                value = value.load_lc_prompt()
-            elif value.sender:
-                value = value.to_lc_message()
-            else:
-                value = value.to_lc_document()
-        elif isinstance(value, Data):
-            value = value.to_lc_document()
-        elif isinstance(value, types.GeneratorType):
+                return value.load_lc_prompt()
+            if value.sender:
+                return value.to_lc_message()
+            return value.to_lc_document()
+        if isinstance(value, Data):
+            return value.to_lc_document()
+        if isinstance(value, types.GeneratorType):
             # generator is not serializable, also we can't consume it
-            value = str(value)
+            return str(value)
         return value
 
     def end_trace(
