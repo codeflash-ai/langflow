@@ -69,16 +69,18 @@ class RunResponse(BaseModel):
 
     @model_serializer(mode="plain")
     def serialize(self):
-        # Serialize all the outputs if they are base models
+        outputs = self.outputs
         serialized = {"session_id": self.session_id, "outputs": []}
-        if self.outputs:
-            serialized_outputs = []
-            for output in self.outputs:
-                if isinstance(output, BaseModel) and not isinstance(output, RunOutputs):
-                    serialized_outputs.append(output.model_dump(exclude_none=True))
-                else:
-                    serialized_outputs.append(output)
+
+        if outputs:
+            serialized_outputs = [
+                output.model_dump(exclude_none=True)
+                if hasattr(output, "model_dump") and not isinstance(output, RunOutputs)
+                else output
+                for output in outputs
+            ]
             serialized["outputs"] = serialized_outputs
+
         return serialized
 
 
