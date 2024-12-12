@@ -523,10 +523,9 @@ async def create_starter_folder(session):
 
 def _is_valid_uuid(val):
     try:
-        uuid_obj = UUID(val)
+        return str(UUID(val)) == val
     except ValueError:
         return False
-    return str(uuid_obj) == val
 
 
 async def load_flows_from_directory() -> None:
