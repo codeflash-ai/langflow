@@ -15,8 +15,10 @@ from typing import TYPE_CHECKING, Any, cast
 
 from loguru import logger
 
+from langflow.custom.custom_component.component import Component
 from langflow.exceptions.component import ComponentBuildError
 from langflow.graph.edge.base import CycleEdge, Edge
+from langflow.graph.edge.schema import EdgeData
 from langflow.graph.graph.constants import Finish, lazy_load_vertex_dict
 from langflow.graph.graph.runnable_vertices_manager import RunnableVerticesManager
 from langflow.graph.graph.schema import GraphData, GraphDump, StartConfigDict, VertexBuildResult
@@ -1261,9 +1263,8 @@ class Graph:
         """Returns a vertex by id."""
         try:
             return self.vertex_map[vertex_id]
-        except KeyError as e:
-            msg = f"Vertex {vertex_id} not found"
-            raise ValueError(msg) from e
+        except KeyError:
+            raise ValueError(f"Vertex {vertex_id} not found")
 
     def get_root_of_group_node(self, vertex_id: str) -> Vertex:
         """Returns the root of a group node."""
@@ -2155,10 +2156,7 @@ class Graph:
         top_level_vertices = []
         for vertex_id in vertices_ids:
             vertex = self.get_vertex(vertex_id)
-            if vertex.parent_is_top_level:
-                top_level_vertices.append(vertex.parent_node_id)
-            else:
-                top_level_vertices.append(vertex_id)
+            top_level_vertices.append(vertex.parent_node_id if vertex.parent_is_top_level else vertex_id)
         return top_level_vertices
 
     def build_in_degree(self, edges: list[CycleEdge]) -> dict[str, int]:
