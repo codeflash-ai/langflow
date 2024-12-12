@@ -12,8 +12,10 @@ from pydantic import BaseModel
 from langflow.custom.custom_component.base_component import BaseComponent
 from langflow.helpers.flow import list_flows, load_flow, run_flow
 from langflow.schema import Data
-from langflow.services.deps import get_storage_service, get_variable_service, session_scope
+from langflow.services.deps import (get_storage_service, get_variable_service,
+                                    session_scope)
 from langflow.services.storage.service import StorageService
+from langflow.services.tracing.schema import Log
 from langflow.template.utils import update_frontend_node_with_template_values
 from langflow.type_extraction.type_extraction import post_process_type
 from langflow.utils import validate
@@ -117,13 +119,11 @@ class CustomComponent(BaseComponent):
 
     def update_state(self, name: str, value: Any) -> None:
         if not self._vertex:
-            msg = "Vertex is not set"
-            raise ValueError(msg)
+            raise ValueError("Vertex is not set")
         try:
             self._vertex.graph.update_state(name=name, record=value, caller=self._vertex.id)
         except Exception as e:
-            msg = f"Error updating state: {e}"
-            raise ValueError(msg) from e
+            raise ValueError(f"Error updating state: {e}")
 
     def stop(self, output_name: str | None = None) -> None:
         if not output_name and self._vertex and len(self._vertex.outputs) == 1:
@@ -142,13 +142,11 @@ class CustomComponent(BaseComponent):
 
     def append_state(self, name: str, value: Any) -> None:
         if not self._vertex:
-            msg = "Vertex is not set"
-            raise ValueError(msg)
+            raise ValueError("Vertex is not set")
         try:
             self._vertex.graph.append_state(name=name, record=value, caller=self._vertex.id)
         except Exception as e:
-            msg = f"Error appending state: {e}"
-            raise ValueError(msg) from e
+            raise ValueError(f"Error appending state: {e}")
 
     def get_state(self, name: str):
         if not self._vertex:
