@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from langflow.custom import CustomComponent
 from langflow.schema import Data
 
@@ -29,14 +31,11 @@ class NotifyComponent(CustomComponent):
                 data = Data(text=str(data))
         elif not data:
             data = Data(text="")
-        if data:
-            if append:
-                self.append_state(name, data)
-            else:
-                self.update_state(name, data)
+        if append:
+            self.append_state(name, data)
         else:
-            self.status = "No record provided."
-        self.status = data
+            self.update_state(name, data)
+        self.status = data if data else "No record provided."
         self._set_successors_ids()
         return data
 
