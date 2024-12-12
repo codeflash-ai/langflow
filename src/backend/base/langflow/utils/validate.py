@@ -86,36 +86,35 @@ def eval_function(function_string: str):
 def execute_function(code, function_name, *args, **kwargs):
     add_type_ignores()
 
-    module = ast.parse(code)
-    exec_globals = globals().copy()
-
-    for node in module.body:
-        if isinstance(node, ast.Import):
-            for alias in node.names:
-                try:
-                    exec(
-                        f"{alias.asname or alias.name} = importlib.import_module('{alias.name}')",
-                        exec_globals,
-                        locals(),
-                    )
-                    exec_globals[alias.asname or alias.name] = importlib.import_module(alias.name)
-                except ModuleNotFoundError as e:
-                    msg = f"Module {alias.name} not found. Please install it and try again."
-                    raise ModuleNotFoundError(msg) from e
-
-    function_code = next(
-        node for node in module.body if isinstance(node, ast.FunctionDef) and node.name == function_name
-    )
-    function_code.parent = None
-    code_obj = compile(ast.Module(body=[function_code], type_ignores=[]), "<string>", "exec")
     try:
-        exec(code_obj, exec_globals, locals())
-    except Exception as exc:
-        msg = "Function string does not contain a function"
-        raise ValueError(msg) from exc
+        module = ast.parse(code)
+    except SyntaxError as e:
+        raise ValueError("Provided code has syntax errors.") from e
 
-    # Add the function to the exec_globals dictionary
-    exec_globals[function_name] = locals()[function_name]
+    exec_globals = {}
+
+    imports = [node for node in module.body if isinstance(node, ast.Import)]
+    function_code = next(
+        (node for node in module.body if isinstance(node, ast.FunctionDef) and node.name == function_name), None
+    )
+
+    if function_code is None:
+        raise ValueError(f"Function {function_name} not found in provided code.")
+
+    for node in imports:
+        for alias in node.names:
+            try:
+                module_name = alias.asname or alias.name
+                exec_globals[module_name] = importlib.import_module(alias.name)
+            except ModuleNotFoundError as e:
+                msg = f"Module {alias.name} not found. Please install it and try again."
+                raise ModuleNotFoundError(msg) from e
+
+    code_obj = compile(ast.Module(body=[function_code], type_ignores=[]), "<string>", "exec")
+    exec(code_obj, exec_globals)
+
+    if function_name not in exec_globals:
+        raise ValueError(f"Function {function_name} was not compiled successfully.")
 
     return exec_globals[function_name](*args, **kwargs)
 
