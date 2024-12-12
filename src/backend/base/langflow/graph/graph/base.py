@@ -15,8 +15,10 @@ from typing import TYPE_CHECKING, Any, cast
 
 from loguru import logger
 
+from langflow.custom.custom_component.component import Component
 from langflow.exceptions.component import ComponentBuildError
 from langflow.graph.edge.base import CycleEdge, Edge
+from langflow.graph.edge.schema import EdgeData
 from langflow.graph.graph.constants import Finish, lazy_load_vertex_dict
 from langflow.graph.graph.runnable_vertices_manager import RunnableVerticesManager
 from langflow.graph.graph.schema import GraphData, GraphDump, StartConfigDict, VertexBuildResult
@@ -39,6 +41,7 @@ from langflow.schema.dotdict import dotdict
 from langflow.schema.schema import INPUT_FIELD_NAME, InputType
 from langflow.services.cache.utils import CacheMiss
 from langflow.services.deps import get_chat_service, get_tracing_service
+from langflow.services.tracing.service import TracingService
 from langflow.utils.async_helpers import run_until_complete
 
 if TYPE_CHECKING:
@@ -1601,37 +1604,25 @@ class Graph:
         return list(set(results))
 
     def topological_sort(self) -> list[Vertex]:
-        """Performs a topological sort of the vertices in the graph.
-
-        Returns:
-            List[Vertex]: A list of vertices in topological order.
-
-        Raises:
-            ValueError: If the graph contains a cycle.
-        """
-        # States: 0 = unvisited, 1 = visiting, 2 = visited
-        state = dict.fromkeys(self.vertices, 0)
+        """Performs a topological sort of the vertices in the graph."""
+        state = {vertex.id: 0 for vertex in self.vertices}
         sorted_vertices = []
 
-        def dfs(vertex) -> None:
-            if state[vertex] == 1:
-                # We have a cycle
-                msg = "Graph contains a cycle, cannot perform topological sort"
-                raise ValueError(msg)
-            if state[vertex] == 0:
-                state[vertex] = 1
-                for edge in vertex.edges:
-                    if edge.source_id == vertex.id:
-                        dfs(self.get_vertex(edge.target_id))
-                state[vertex] = 2
-                sorted_vertices.append(vertex)
+        def dfs(vertex_id: str) -> None:
+            if state[vertex_id] == 1:
+                raise ValueError("Graph contains a cycle, cannot perform topological sort")
+            if state[vertex_id] == 0:
+                state[vertex_id] = 1
+                for target_id in self.successor_map[vertex_id]:
+                    dfs(target_id)
+                state[vertex_id] = 2
+                sorted_vertices.append(vertex_id)
 
-        # Visit each vertex
-        for vertex in self.vertices:
-            if state[vertex] == 0:
-                dfs(vertex)
+        for vertex_id in self.vertex_map:
+            if state[vertex_id] == 0:
+                dfs(vertex_id)
 
-        return list(reversed(sorted_vertices))
+        return [self.vertex_map[vertex_id] for vertex_id in reversed(sorted_vertices)]
 
     def generator_build(self) -> Generator[Vertex, None, None]:
         """Builds each vertex in the graph and yields it."""
