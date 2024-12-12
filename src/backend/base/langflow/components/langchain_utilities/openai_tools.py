@@ -37,14 +37,17 @@ class OpenAIToolsAgentComponent(LCToolsAgentComponent):
         return self.chat_history
 
     def create_agent_runnable(self):
-        if "input" not in self.user_prompt:
-            msg = "Prompt must contain 'input' key."
-            raise ValueError(msg)
+        try:
+            user_prompt = self.user_prompt
+        except KeyError:
+            raise ValueError("Prompt must contain 'input' key.")
+
         messages = [
             ("system", self.system_prompt),
             ("placeholder", "{chat_history}"),
-            HumanMessagePromptTemplate(prompt=PromptTemplate(input_variables=["input"], template=self.user_prompt)),
+            HumanMessagePromptTemplate(prompt=PromptTemplate(input_variables=["input"], template=user_prompt)),
             ("placeholder", "{agent_scratchpad}"),
         ]
+
         prompt = ChatPromptTemplate.from_messages(messages)
         return create_openai_tools_agent(self.llm, self.tools, prompt)
