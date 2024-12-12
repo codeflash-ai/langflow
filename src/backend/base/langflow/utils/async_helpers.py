@@ -2,9 +2,7 @@ import asyncio
 
 
 def run_until_complete(coro):
-    try:
-        loop = asyncio.get_running_loop()
-    except RuntimeError:
-        # If there's no event loop, create a new one and run the coroutine
-        return asyncio.run(coro)
+    loop = asyncio.get_event_loop()
+    if loop.is_running():
+        return asyncio.ensure_future(coro)
     return loop.run_until_complete(coro)
