@@ -173,13 +173,16 @@ class AssemblyAILeMUR(Component):
         return result.dict()
 
     def get_final_model(self, model_name: str) -> aai.LemurModel:
-        if model_name == "claude3_5_sonnet":
-            return aai.LemurModel.claude3_5_sonnet
-        if model_name == "claude3_opus":
-            return aai.LemurModel.claude3_opus
-        if model_name == "claude3_haiku":
-            return aai.LemurModel.claude3_haiku
-        if model_name == "claude3_sonnet":
-            return aai.LemurModel.claude3_sonnet
-        msg = f"Model name not supported: {model_name}"
-        raise ValueError(msg)
+        try:
+            return self.model_map[model_name]
+        except KeyError:
+            msg = f"Model name not supported: {model_name}"
+            raise ValueError(msg)
+
+    def __init__(self):
+        self.model_map = {
+            "claude3_5_sonnet": aai.LemurModel.claude3_5_sonnet,
+            "claude3_opus": aai.LemurModel.claude3_opus,
+            "claude3_haiku": aai.LemurModel.claude3_haiku,
+            "claude3_sonnet": aai.LemurModel.claude3_sonnet,
+        }
