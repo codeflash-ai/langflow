@@ -36,12 +36,7 @@ class PGVectorStoreComponent(LCVectorStoreComponent):
 
     @check_cached_vector_store
     def build_vector_store(self) -> PGVector:
-        documents = []
-        for _input in self.ingest_data or []:
-            if isinstance(_input, Data):
-                documents.append(_input.to_lc_document())
-            else:
-                documents.append(_input)
+        documents = [d if isinstance(d, Data) else d.to_lc_document() for d in (self.ingest_data or [])]
 
         connection_string_parsed = transform_connection_string(self.pg_server_url)
 
