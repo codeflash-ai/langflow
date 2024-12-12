@@ -68,44 +68,36 @@ class NotionPageUpdate(LCToolComponent):
         headers = {
             "Authorization": f"Bearer {self.notion_secret}",
             "Content-Type": "application/json",
-            "Notion-Version": "2022-06-28",  # Use the latest supported version
+            "Notion-Version": "2022-06-28",
         }
 
-        # Parse properties if it's a string
         if isinstance(properties, str):
             try:
                 parsed_properties = json.loads(properties)
             except json.JSONDecodeError as e:
                 error_message = f"Invalid JSON format for properties: {e}"
-                logger.exception(error_message)
+                logger.error(error_message)
                 return error_message
-
         else:
             parsed_properties = properties
 
         data = {"properties": parsed_properties}
 
         try:
-            logger.info(f"Sending request to Notion API: URL: {url}, Data: {json.dumps(data)}")
             response = requests.patch(url, headers=headers, json=data, timeout=10)
             response.raise_for_status()
             updated_page = response.json()
-
-            logger.info(f"Successfully updated Notion page. Response: {json.dumps(updated_page)}")
         except requests.exceptions.HTTPError as e:
-            error_message = f"HTTP Error occurred: {e}"
-            if e.response is not None:
-                error_message += f"\nStatus code: {e.response.status_code}"
-                error_message += f"\nResponse body: {e.response.text}"
-            logger.exception(error_message)
+            error_message = f"HTTP Error occurred: {e}\nStatus code: {e.response.status_code if e.response else 'N/A'}\nResponse body: {e.response.text if e.response else 'N/A'}"
+            logger.error(error_message)
             return error_message
         except requests.exceptions.RequestException as e:
             error_message = f"An error occurred while making the request: {e}"
-            logger.exception(error_message)
+            logger.error(error_message)
             return error_message
-        except Exception as e:  # noqa: BLE001
+        except Exception as e:
             error_message = f"An unexpected error occurred: {e}"
-            logger.exception(error_message)
+            logger.error(error_message)
             return error_message
 
         return updated_page
