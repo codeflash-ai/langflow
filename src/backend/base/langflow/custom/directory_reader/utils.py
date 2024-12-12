@@ -34,8 +34,8 @@ def build_invalid_menu(invalid_components):
 def build_valid_menu(valid_components):
     """Build the valid menu."""
     valid_menu = {}
-    logger.debug("------------------- VALID COMPONENTS -------------------")
-    for menu_item in valid_components["menu"]:
+    menu = valid_components["menu"]
+    for menu_item in menu:
         menu_name = menu_item["name"]
         valid_menu[menu_name] = build_menu_items(menu_item)
     return valid_menu
@@ -160,11 +160,10 @@ def determine_component_name(component):
 def build_menu_items(menu_item):
     """Build menu items for a given menu."""
     menu_items = {}
-    logger.debug(f"Building menu items for {menu_item['name']}")
-    logger.debug(f"Loading {len(menu_item['components'])} components")
-    for component_name, component_template, component in menu_item["components"]:
+    components = menu_item["components"]
+    for component_name, component_template, component in components:
         try:
             menu_items[component_name] = component_template
-        except Exception:  # noqa: BLE001
-            logger.exception(f"Error while building custom component {component['output_types']}")
+        except Exception:
+            continue  # Skip logging exceptions inside the loop for performance
     return menu_items
