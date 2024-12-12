@@ -8,7 +8,6 @@ from http import HTTPStatus
 from pathlib import Path
 from urllib.parse import urlencode
 
-import anyio
 from fastapi import FastAPI, HTTPException, Request, Response, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse
@@ -259,14 +258,15 @@ def setup_static_files(app: FastAPI, static_files_dir: Path) -> None:
         name="static",
     )
 
+    index_path = static_files_dir / "index.html"
+
+    # Precheck if index.html exists once during setup
+    if not index_path.exists():
+        raise RuntimeError(f"File at path {index_path} does not exist.")
+
     @app.exception_handler(404)
     async def custom_404_handler(_request, _exc):
-        path = anyio.Path(static_files_dir) / "index.html"
-
-        if not await path.exists():
-            msg = f"File at path {path} does not exist."
-            raise RuntimeError(msg)
-        return FileResponse(path)
+        return FileResponse(index_path)
 
 
 def get_static_files_dir():
