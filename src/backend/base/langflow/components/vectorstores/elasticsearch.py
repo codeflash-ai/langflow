@@ -212,14 +212,14 @@ class ElasticsearchVectorStoreComponent(LCVectorStoreComponent):
 
         response = client.search(index=index_name, body=query)
 
-        results = []
-        for hit in response["hits"]["hits"]:
-            doc = Document(
-                page_content=hit["_source"].get("text", ""),
-                metadata=hit["_source"].get("metadata", {}),
+        hits = response["hits"]["hits"]
+        results = [
+            (
+                Document(page_content=hit["_source"].get("text", ""), metadata=hit["_source"].get("metadata", {})),
+                hit["_score"],
             )
-            score = hit["_score"]
-            results.append((doc, score))
+            for hit in hits
+        ]
 
         return results
 
