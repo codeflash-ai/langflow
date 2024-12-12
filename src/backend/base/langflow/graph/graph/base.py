@@ -15,8 +15,10 @@ from typing import TYPE_CHECKING, Any, cast
 
 from loguru import logger
 
+from langflow.custom.custom_component.component import Component
 from langflow.exceptions.component import ComponentBuildError
 from langflow.graph.edge.base import CycleEdge, Edge
+from langflow.graph.edge.schema import EdgeData
 from langflow.graph.graph.constants import Finish, lazy_load_vertex_dict
 from langflow.graph.graph.runnable_vertices_manager import RunnableVerticesManager
 from langflow.graph.graph.schema import GraphData, GraphDump, StartConfigDict, VertexBuildResult
@@ -39,6 +41,7 @@ from langflow.schema.dotdict import dotdict
 from langflow.schema.schema import INPUT_FIELD_NAME, InputType
 from langflow.services.cache.utils import CacheMiss
 from langflow.services.deps import get_chat_service, get_tracing_service
+from langflow.services.tracing.service import TracingService
 from langflow.utils.async_helpers import run_until_complete
 
 if TYPE_CHECKING:
@@ -1261,9 +1264,8 @@ class Graph:
         """Returns a vertex by id."""
         try:
             return self.vertex_map[vertex_id]
-        except KeyError as e:
-            msg = f"Vertex {vertex_id} not found"
-            raise ValueError(msg) from e
+        except KeyError:
+            raise ValueError(f"Vertex {vertex_id} not found") from None
 
     def get_root_of_group_node(self, vertex_id: str) -> Vertex:
         """Returns the root of a group node."""
@@ -1766,28 +1768,18 @@ class Graph:
 
     def _build_vertices(self) -> list[Vertex]:
         """Builds the vertices of the graph."""
-        vertices: list[Vertex] = []
-        for frontend_data in self._vertices:
-            if frontend_data.get("type") == NodeTypeEnum.NoteNode:
-                continue
-            try:
-                vertex_instance = self.get_vertex(frontend_data["id"])
-            except ValueError:
-                vertex_instance = self._create_vertex(frontend_data)
-            vertices.append(vertex_instance)
-
-        return vertices
+        return [
+            self._create_vertex(data) if data.get("type") != NodeTypeEnum.NoteNode else self.get_vertex(data["id"])
+            for data in self._vertices
+        ]
 
     def _create_vertex(self, frontend_data: NodeData):
         vertex_data = frontend_data["data"]
-        vertex_type: str = vertex_data["type"]
-        vertex_base_type: str = vertex_data["node"]["template"]["_type"]
+        vertex_type = vertex_data["type"]
+        vertex_base_type = vertex_data["node"]["template"]["_type"]
         if "id" not in vertex_data:
-            msg = f"Vertex data for {vertex_data['display_name']} does not contain an id"
-            raise ValueError(msg)
-
+            raise ValueError(f"Vertex data for {vertex_data['display_name']} does not contain an id")
         vertex_class = self._get_vertex_class(vertex_type, vertex_base_type, vertex_data["id"])
-
         vertex_instance = vertex_class(frontend_data, graph=self)
         vertex_instance.set_top_level(self.top_level_vertices)
         return vertex_instance
