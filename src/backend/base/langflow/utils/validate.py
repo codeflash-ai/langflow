@@ -216,34 +216,13 @@ def prepare_global_scope(code, module):
     """
     exec_globals = globals().copy()
     exec_globals.update(get_default_imports(code))
+
     for node in module.body:
-        if isinstance(node, ast.Import):
-            for alias in node.names:
-                try:
-                    exec_globals[alias.asname or alias.name] = importlib.import_module(alias.name)
-                except ModuleNotFoundError as e:
-                    msg = f"Module {alias.name} not found. Please install it and try again."
-                    raise ModuleNotFoundError(msg) from e
-        elif isinstance(node, ast.ImportFrom) and node.module is not None:
-            try:
-                with warnings.catch_warnings():
-                    warnings.simplefilter("ignore", LangChainDeprecationWarning)
-                    imported_module = importlib.import_module(node.module)
-                    for alias in node.names:
-                        exec_globals[alias.name] = getattr(imported_module, alias.name)
-            except ModuleNotFoundError as e:
-                msg = f"Module {node.module} not found. Please install it and try again"
-                raise ModuleNotFoundError(msg) from e
-        elif isinstance(node, ast.ClassDef):
-            # Compile and execute the class definition to properly create the class
-            class_code = compile(ast.Module(body=[node], type_ignores=[]), "<string>", "exec")
-            exec(class_code, exec_globals)
-        elif isinstance(node, ast.FunctionDef):
-            function_code = compile(ast.Module(body=[node], type_ignores=[]), "<string>", "exec")
-            exec(function_code, exec_globals)
-        elif isinstance(node, ast.Assign):
-            assign_code = compile(ast.Module(body=[node], type_ignores=[]), "<string>", "exec")
-            exec(assign_code, exec_globals)
+        if isinstance(node, (ast.Import, ast.ImportFrom)):
+            add_imports_to_scope(node, exec_globals)
+        elif isinstance(node, (ast.ClassDef, ast.FunctionDef, ast.Assign)):
+            compile_and_exec(node, exec_globals)
+
     return exec_globals
 
 
@@ -358,3 +337,28 @@ def extract_class_name(code: str) -> str:
     except SyntaxError as e:
         msg = f"Invalid Python code: {e!s}"
         raise ValueError(msg) from e
+
+
+def add_imports_to_scope(node, exec_globals):
+    """Helper function to handle import nodes and add modules to exec_globals."""
+    if isinstance(node, ast.Import):
+        for alias in node.names:
+            try:
+                exec_globals[alias.asname or alias.name] = importlib.import_module(alias.name)
+            except ModuleNotFoundError:
+                raise ModuleNotFoundError(f"Module {alias.name} not found. Please install it and try again.")
+    elif isinstance(node, ast.ImportFrom) and node.module is not None:
+        try:
+            with warnings.catch_warnings():
+                warnings.simplefilter("ignore", LangChainDeprecationWarning)
+                imported_module = importlib.import_module(node.module)
+                for alias in node.names:
+                    exec_globals[alias.name] = getattr(imported_module, alias.name)
+        except ModuleNotFoundError:
+            raise ModuleNotFoundError(f"Module {node.module} not found. Please install it and try again.")
+
+
+def compile_and_exec(node, exec_globals):
+    """Compiles and executes a given AST node in the provided exec_globals."""
+    compiled_code = compile(ast.Module(body=[node], type_ignores=[]), "<string>", "exec")
+    exec(compiled_code, exec_globals)
