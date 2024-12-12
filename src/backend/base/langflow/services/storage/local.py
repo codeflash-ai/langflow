@@ -16,7 +16,7 @@ class LocalStorageService(StorageService):
 
     def build_full_path(self, flow_id: str, file_name: str) -> str:
         """Build the full path of a file in the local storage."""
-        return str(self.data_dir / flow_id / file_name)
+        return self.data_dir.joinpath(flow_id, file_name).as_posix()
 
     async def save_file(self, flow_id: str, file_name: str, data: bytes) -> None:
         """Save a file in the local storage.
