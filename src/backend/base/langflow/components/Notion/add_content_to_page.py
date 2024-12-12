@@ -138,9 +138,9 @@ class AddContentToPage(LCToolComponent):
         return blocks
 
     def extract_language_and_code(self, code_text):
-        lines = code_text.split("\n")
-        language = lines[0].strip()
-        code = "\n".join(lines[1:]).strip()
+        parts = code_text.split("\n", 1)
+        language = parts[0].strip()
+        code = parts[1].strip() if len(parts) > 1 else ""
         return language, code
 
     def is_code_block(self, text):
