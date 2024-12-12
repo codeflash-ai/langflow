@@ -160,10 +160,11 @@ class AddContentToPage(LCToolComponent):
         has_separator = False
         for i, row in enumerate(rows):
             if "|" in row:
-                cells = [cell.strip() for cell in row.split("|")]
-                cells = [cell for cell in cells if cell]  # Remove empty cells
-                if i == 1 and all(set(cell) <= set("-|") for cell in cells):
-                    has_separator = True
+                cells = row.split("|")
+                cells = [cell.strip() for cell in cells if cell.strip()]  # Combine strip and filter in one step
+                if i == 1:
+                    if all(cell == "-" * len(cell) for cell in cells):
+                        has_separator = True
                 elif not cells:
                     return False
 
