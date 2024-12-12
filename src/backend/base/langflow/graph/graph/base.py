@@ -15,8 +15,10 @@ from typing import TYPE_CHECKING, Any, cast
 
 from loguru import logger
 
+from langflow.custom.custom_component.component import Component
 from langflow.exceptions.component import ComponentBuildError
 from langflow.graph.edge.base import CycleEdge, Edge
+from langflow.graph.edge.schema import EdgeData
 from langflow.graph.graph.constants import Finish, lazy_load_vertex_dict
 from langflow.graph.graph.runnable_vertices_manager import RunnableVerticesManager
 from langflow.graph.graph.schema import GraphData, GraphDump, StartConfigDict, VertexBuildResult
@@ -39,6 +41,7 @@ from langflow.schema.dotdict import dotdict
 from langflow.schema.schema import INPUT_FIELD_NAME, InputType
 from langflow.services.cache.utils import CacheMiss
 from langflow.services.deps import get_chat_service, get_tracing_service
+from langflow.services.tracing.service import TracingService
 from langflow.utils.async_helpers import run_until_complete
 
 if TYPE_CHECKING:
@@ -1975,13 +1978,7 @@ class Graph:
 
     def sort_layer_by_dependency(self, vertices_layers: list[list[str]]) -> list[list[str]]:
         """Sorts the vertices in each layer by dependency, ensuring no vertex depends on a subsequent vertex."""
-        sorted_layers = []
-
-        for layer in vertices_layers:
-            sorted_layer = self._sort_single_layer_by_dependency(layer)
-            sorted_layers.append(sorted_layer)
-
-        return sorted_layers
+        return [self._sort_single_layer_by_dependency(layer) for layer in vertices_layers]
 
     def _sort_single_layer_by_dependency(self, layer: list[str]) -> list[str]:
         """Sorts a single layer by dependency using a stable sorting method."""
