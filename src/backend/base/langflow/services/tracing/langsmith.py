@@ -5,9 +5,11 @@ import traceback
 import types
 from datetime import datetime, timezone
 from typing import TYPE_CHECKING, Any
+from uuid import UUID
 
 from loguru import logger
 
+from langflow.graph.vertex.base import Vertex
 from langflow.schema.data import Data
 from langflow.services.tracing.base import BaseTracer
 
@@ -73,24 +75,23 @@ class LangSmithTracer(BaseTracer):
     ) -> None:
         if not self._ready or not self._run_tree:
             return
-        processed_inputs = {}
-        if inputs:
-            processed_inputs = self._convert_to_langchain_types(inputs)
+
+        processed_inputs = self._convert_to_langchain_types(inputs) if inputs else {}
+
         child = self._run_tree.create_child(
             name=trace_name,
             run_type=trace_type,  # type: ignore[arg-type]
             inputs=processed_inputs,
         )
+
         if metadata:
             child.add_metadata(self._convert_to_langchain_types(metadata))
+
         self._children[trace_name] = child
         self._child_link: dict[str, str] = {}
 
     def _convert_to_langchain_types(self, io_dict: dict[str, Any]):
-        converted = {}
-        for key, value in io_dict.items():
-            converted[key] = self._convert_to_langchain_type(value)
-        return converted
+        return {key: self._convert_to_langchain_type(value) for key, value in io_dict.items()}
 
     def _convert_to_langchain_type(self, value):
         from langflow.schema.message import Message

@@ -14,14 +14,16 @@ import pandas as pd
 from loguru import logger
 
 from langflow.exceptions.component import ComponentBuildError
-from langflow.graph.schema import INPUT_COMPONENTS, OUTPUT_COMPONENTS, InterfaceComponentTypes, ResultData
+from langflow.graph.schema import (INPUT_COMPONENTS, OUTPUT_COMPONENTS,
+                                   InterfaceComponentTypes, ResultData)
 from langflow.graph.utils import UnbuiltObject, UnbuiltResult, log_transaction
 from langflow.interface import initialize
 from langflow.interface.listing import lazy_load_dict
 from langflow.schema.artifact import ArtifactType
 from langflow.schema.data import Data
 from langflow.schema.message import Message
-from langflow.schema.schema import INPUT_FIELD_NAME, OutputValue, build_output_logs
+from langflow.schema.schema import (INPUT_FIELD_NAME, OutputValue,
+                                    build_output_logs)
 from langflow.services.deps import get_storage_service
 from langflow.utils.constants import DIRECT_TYPES
 from langflow.utils.schemas import ChatOutputResponse
