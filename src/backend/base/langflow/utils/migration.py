@@ -1,3 +1,4 @@
+from sqlalchemy import inspect
 from sqlalchemy.engine.reflection import Inspector
 
 
@@ -41,8 +42,8 @@ def foreign_key_exists(table_name, fk_name, conn):
     Returns:
     bool: True if the foreign key exists, False otherwise.
     """
-    inspector = Inspector.from_engine(conn)
-    return fk_name in [fk["name"] for fk in inspector.get_foreign_keys(table_name)]
+    inspector = inspect(conn)
+    return any(fk["name"] == fk_name for fk in inspector.get_foreign_keys(table_name))
 
 
 def constraint_exists(table_name, constraint_name, conn):
