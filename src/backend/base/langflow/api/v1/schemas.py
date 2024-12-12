@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from datetime import datetime, timezone
 from enum import Enum
 from pathlib import Path
@@ -275,9 +277,7 @@ class ResultDataResponse(BaseModel):
     @field_serializer("results")
     @classmethod
     def serialize_results(cls, v):
-        if isinstance(v, dict):
-            return {key: serialize_field(val) for key, val in v.items()}
-        return serialize_field(v)
+        return {key: serialize_field(val) for key, val in v.items()} if isinstance(v, dict) else serialize_field(v)
 
 
 class VertexBuildResponse(BaseModel):

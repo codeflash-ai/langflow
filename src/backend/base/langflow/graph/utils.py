@@ -74,7 +74,7 @@ def serialize_field(value):
     Unified serialization function for handling both BaseModel and Document types,
     including handling lists of these types.
     """
-    if isinstance(value, list | tuple):
+    if isinstance(value, (list, tuple)):
         return [serialize_field(v) for v in value]
     if isinstance(value, Document):
         return value.to_json()
@@ -83,9 +83,7 @@ def serialize_field(value):
     if isinstance(value, dict):
         return {k: serialize_field(v) for k, v in value.items()}
     if isinstance(value, V1BaseModel):
-        if hasattr(value, "to_json"):
-            return value.to_json()
-        return value.dict()
+        return value.to_json() if hasattr(value, "to_json") else value.dict()
     return str(value)
 
 
