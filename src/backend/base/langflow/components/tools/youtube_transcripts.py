@@ -213,15 +213,9 @@ class YouTubeTranscriptsComponent(Component):
                 language=[self.language],
                 translation=self.translation or None,
             )
-
             transcripts = loader.load()
-
             if self.transcript_format == "text":
-                # Extract only the page_content from the Document
                 return Data(data={"transcripts": transcripts[0].page_content})
-            # For chunks, extract page_content and metadata separately
             return [Data(data={"content": doc.page_content, "metadata": doc.metadata}) for doc in transcripts]
-
-        except Exception as exc:  # noqa: BLE001
-            # Using a specific error type for the return value
-            return Data(data={"error": f"Failed to get YouTube transcripts: {exc!s}"})
+        except Exception as exc:
+            return Data(data={"error": f"Failed to get YouTube transcripts: {exc}"})
