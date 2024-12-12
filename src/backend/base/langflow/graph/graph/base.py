@@ -15,8 +15,10 @@ from typing import TYPE_CHECKING, Any, cast
 
 from loguru import logger
 
+from langflow.custom.custom_component.component import Component
 from langflow.exceptions.component import ComponentBuildError
 from langflow.graph.edge.base import CycleEdge, Edge
+from langflow.graph.edge.schema import EdgeData
 from langflow.graph.graph.constants import Finish, lazy_load_vertex_dict
 from langflow.graph.graph.runnable_vertices_manager import RunnableVerticesManager
 from langflow.graph.graph.schema import GraphData, GraphDump, StartConfigDict, VertexBuildResult
@@ -39,6 +41,7 @@ from langflow.schema.dotdict import dotdict
 from langflow.schema.schema import INPUT_FIELD_NAME, InputType
 from langflow.services.cache.utils import CacheMiss
 from langflow.services.deps import get_chat_service, get_tracing_service
+from langflow.services.tracing.service import TracingService
 from langflow.utils.async_helpers import run_until_complete
 
 if TYPE_CHECKING:
@@ -2120,20 +2123,20 @@ class Graph:
         runnable_vertices = []
         visited = set()
 
-        def find_runnable_predecessors(predecessor: Vertex) -> None:
-            predecessor_id = predecessor.id
+        def find_runnable_predecessors(predecessor_id: str) -> None:
             if predecessor_id in visited:
                 return
             visited.add(predecessor_id)
-            is_active = self.get_vertex(predecessor_id).is_active()
-            if self.run_manager.is_vertex_runnable(predecessor_id, is_active=is_active):
+            if self.run_manager.is_vertex_runnable(
+                predecessor_id, is_active=self.vertex_map[predecessor_id].is_active()
+            ):
                 runnable_vertices.append(predecessor_id)
             else:
                 for pred_pred_id in self.run_manager.run_predecessors.get(predecessor_id, []):
-                    find_runnable_predecessors(self.get_vertex(pred_pred_id))
+                    find_runnable_predecessors(pred_pred_id)
 
         for predecessor_id in self.run_manager.run_predecessors.get(vertex_id, []):
-            find_runnable_predecessors(self.get_vertex(predecessor_id))
+            find_runnable_predecessors(predecessor_id)
         return runnable_vertices
 
     def remove_from_predecessors(self, vertex_id: str) -> None:
