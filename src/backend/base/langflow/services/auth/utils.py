@@ -1,4 +1,5 @@
 import base64
+import json
 import random
 import warnings
 from collections.abc import Coroutine
@@ -263,9 +264,15 @@ def create_user_api_key(user_id: UUID) -> dict:
 
 def get_user_id_from_token(token: str) -> UUID:
     try:
-        user_id = jwt.get_unverified_claims(token)["sub"]
+        # JWT Structure: Header.Payload.Signature
+        payload_segment = token.split(".")[1]
+        # Add necessary padding to base64 string
+        padded_segment = payload_segment + "==" * ((4 - len(payload_segment) % 4) % 4)
+        decoded_payload = base64.urlsafe_b64decode(padded_segment)
+        payload = json.loads(decoded_payload)
+        user_id = payload["sub"]
         return UUID(user_id)
-    except (KeyError, JWTError, ValueError):
+    except (KeyError, JWTError, ValueError, IndexError):
         return UUID(int=0)
 
 
