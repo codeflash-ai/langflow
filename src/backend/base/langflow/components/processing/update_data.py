@@ -78,20 +78,15 @@ class UpdateDataComponent(Component):
 
             if field_value_int > self.MAX_FIELDS:
                 build_config["number_of_fields"]["value"] = self.MAX_FIELDS
-                msg = f"Number of fields cannot exceed {self.MAX_FIELDS}. " "Try using a Component to combine two Data."
+                msg = f"Number of fields cannot exceed {self.MAX_FIELDS}. Try using a Component to combine two Data."
                 raise ValueError(msg)
 
-            existing_fields = {}
-            # Back up the existing template fields
-            for key in list(build_config.keys()):
-                if key not in default_keys:
-                    existing_fields[key] = build_config.pop(key)
+            existing_fields = {key: build_config.pop(key) for key in list(build_config) if key not in default_keys}
 
             for i in range(1, field_value_int + 1):
                 key = f"field_{i}_key"
                 if key in existing_fields:
-                    field = existing_fields[key]
-                    build_config[key] = field
+                    build_config[key] = existing_fields[key]
                 else:
                     field = DictInput(
                         display_name=f"Field {i}",
@@ -99,7 +94,7 @@ class UpdateDataComponent(Component):
                         info=f"Key for field {i}.",
                         input_types=["Text", "Data"],
                     )
-                    build_config[field.name] = field.to_dict()
+                    build_config[key] = field.to_dict()
 
             build_config["number_of_fields"]["value"] = field_value_int
         return build_config
