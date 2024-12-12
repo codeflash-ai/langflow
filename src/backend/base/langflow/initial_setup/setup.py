@@ -153,8 +153,8 @@ def update_projects_components_with_latest_component_versions(project_data, all_
 def scape_json_parse(json_string: str) -> dict:
     if isinstance(json_string, dict):
         return json_string
-    parsed_string = json_string.replace("œ", '"')
-    return json.loads(parsed_string)
+    # Use a more efficient method to replace 'œ' with '"'
+    return json.loads(json_string.replace("œ", '"'))
 
 
 def update_new_output(data):
@@ -243,83 +243,78 @@ def update_new_output(data):
 
 def update_edges_with_latest_component_versions(project_data):
     edge_changes_log = defaultdict(list)
-    project_data_copy = deepcopy(project_data)
-    for edge in project_data_copy.get("edges", []):
-        source_handle = edge.get("data").get("sourceHandle")
-        source_handle = scape_json_parse(source_handle)
-        target_handle = edge.get("data").get("targetHandle")
-        target_handle = scape_json_parse(target_handle)
-        # Now find the source and target nodes in the nodes list
-        source_node = next(
-            (node for node in project_data.get("nodes", []) if node.get("id") == edge.get("source")),
-            None,
-        )
-        target_node = next(
-            (node for node in project_data.get("nodes", []) if node.get("id") == edge.get("target")),
-            None,
-        )
+    nodes_by_id = {node["id"]: node for node in project_data.get("nodes", [])}
+
+    for edge in project_data.get("edges", []):
+        source_handle = scape_json_parse(edge["data"].get("sourceHandle"))
+        target_handle = scape_json_parse(edge["data"].get("targetHandle"))
+
+        source_node = nodes_by_id.get(edge.get("source"))
+        target_node = nodes_by_id.get(edge.get("target"))
+
         if source_node and target_node:
-            source_node_data = source_node.get("data").get("node")
-            target_node_data = target_node.get("data").get("node")
+            source_node_data = source_node["data"]["node"]
+            target_node_data = target_node["data"]["node"]
+
             output_data = next(
-                (output for output in source_node_data.get("outputs", []) if output["name"] == source_handle["name"]),
-                None,
-            )
-            if not output_data:
-                output_data = next(
+                (output for output in source_node_data["outputs"] if output["name"] == source_handle["name"]),
+                next(
                     (
                         output
-                        for output in source_node_data.get("outputs", [])
+                        for output in source_node_data["outputs"]
                         if output["display_name"] == source_handle["name"]
                     ),
                     None,
-                )
-                if output_data:
-                    source_handle["name"] = output_data["name"]
-            if output_data:
-                if len(output_data.get("types")) == 1:
-                    new_output_types = output_data.get("types")
-                elif output_data.get("selected"):
-                    new_output_types = [output_data.get("selected")]
-                else:
-                    new_output_types = []
-            else:
-                new_output_types = []
+                ),
+            )
 
-            if source_handle["output_types"] != new_output_types:
-                edge_changes_log[source_node_data["display_name"]].append(
-                    {
-                        "attr": "output_types",
-                        "old_value": source_handle["output_types"],
-                        "new_value": new_output_types,
-                    }
+            if output_data:
+                if source_handle["name"] == output_data.get("display_name"):
+                    source_handle["name"] = output_data["name"]
+
+                new_output_types = (
+                    output_data["types"]
+                    if len(output_data.get("types", [])) == 1
+                    else [output_data.get("selected")]
+                    if output_data.get("selected")
+                    else []
                 )
-                source_handle["output_types"] = new_output_types
+
+                if source_handle["output_types"] != new_output_types:
+                    edge_changes_log[source_node_data["display_name"]].append(
+                        {
+                            "attr": "output_types",
+                            "old_value": source_handle["output_types"],
+                            "new_value": new_output_types,
+                        }
+                    )
+                    source_handle["output_types"] = new_output_types
 
             field_name = target_handle.get("fieldName")
-            if field_name in target_node_data.get("template") and target_handle["inputTypes"] != target_node_data.get(
-                "template"
-            ).get(field_name).get("input_types"):
+            target_input_type = target_node_data.get("template", {}).get(field_name, {}).get("input_types")
+
+            if target_handle["inputTypes"] != target_input_type:
                 edge_changes_log[target_node_data["display_name"]].append(
                     {
                         "attr": "inputTypes",
                         "old_value": target_handle["inputTypes"],
-                        "new_value": target_node_data.get("template").get(field_name).get("input_types"),
+                        "new_value": target_input_type,
                     }
                 )
-                target_handle["inputTypes"] = target_node_data.get("template").get(field_name).get("input_types")
+                target_handle["inputTypes"] = target_input_type
+
             escaped_source_handle = escape_json_dump(source_handle)
             escaped_target_handle = escape_json_dump(target_handle)
-            try:
-                old_escape_source_handle = escape_json_dump(json.loads(edge["sourceHandle"]))
 
-            except json.JSONDecodeError:
-                old_escape_source_handle = edge["sourceHandle"]
+            def safe_escape_json_dump(value):
+                try:
+                    return escape_json_dump(json.loads(value))
+                except json.JSONDecodeError:
+                    return value
 
-            try:
-                old_escape_target_handle = escape_json_dump(json.loads(edge["targetHandle"]))
-            except json.JSONDecodeError:
-                old_escape_target_handle = edge["targetHandle"]
+            old_escape_source_handle = safe_escape_json_dump(edge["sourceHandle"])
+            old_escape_target_handle = safe_escape_json_dump(edge["targetHandle"])
+
             if old_escape_source_handle != escaped_source_handle:
                 edge_changes_log[source_node_data["display_name"]].append(
                     {
@@ -329,6 +324,7 @@ def update_edges_with_latest_component_versions(project_data):
                     }
                 )
                 edge["sourceHandle"] = escaped_source_handle
+
             if old_escape_target_handle != escaped_target_handle:
                 edge_changes_log[target_node_data["display_name"]].append(
                     {
@@ -338,27 +334,21 @@ def update_edges_with_latest_component_versions(project_data):
                     }
                 )
                 edge["targetHandle"] = escaped_target_handle
-
         else:
             logger.error(f"Source or target node not found for edge: {edge}")
+
     log_node_changes(edge_changes_log)
-    return project_data_copy
+    return project_data
 
 
 def log_node_changes(node_changes_log) -> None:
-    # The idea here is to log the changes that were made to the nodes in debug
-    # Something like:
-    # Node: "Node Name" was updated with the following changes:
-    # attr_name: old_value -> new_value
-    # let's create one log per node
-    formatted_messages = []
-    for node_name, changes in node_changes_log.items():
-        message = f"\nNode: {node_name} was updated with the following changes:"
-        for change in changes:
-            message += f"\n- {change['attr']}: {change['old_value']} -> {change['new_value']}"
-        formatted_messages.append(message)
+    formatted_messages = [
+        f"\nNode: {node_name} was updated with the following changes:"
+        + "".join(f"\n- {change['attr']}: {change['old_value']} -> {change['new_value']}" for change in changes)
+        for node_name, changes in node_changes_log.items()
+    ]
     if formatted_messages:
-        logger.debug("\n".join(formatted_messages))
+        logger.debug("".join(formatted_messages))
 
 
 async def load_starter_projects(retries=3, delay=1) -> list[tuple[anyio.Path, dict]]:
