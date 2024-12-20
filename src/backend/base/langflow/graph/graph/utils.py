@@ -24,7 +24,11 @@ def find_start_component_id(vertices):
 
 def find_last_node(nodes, edges):
     """This function receives a flow and returns the last node."""
-    return next((n for n in nodes if all(e["source"] != n["id"] for e in edges)), None)
+    source_ids = {edge["source"] for edge in edges}
+    for node in nodes:
+        if node["id"] not in source_ids:
+            return node
+    return None
 
 
 def add_parent_node_id(nodes, parent_node_id) -> None:
@@ -403,25 +407,25 @@ def find_all_cycle_edges(entry_point: str, edges: list[tuple[str, str]]) -> list
         graph[u].append(v)
 
     # Utility function to perform DFS
-    def dfs(v, visited, rec_stack):
+    def dfs(v, visited, rec_stack, cycle_edges):
         visited.add(v)
         rec_stack.add(v)
 
-        cycle_edges = []
-
         for neighbor in graph[v]:
             if neighbor not in visited:
-                cycle_edges += dfs(neighbor, visited, rec_stack)
+                dfs(neighbor, visited, rec_stack, cycle_edges)
             elif neighbor in rec_stack:
                 cycle_edges.append((v, neighbor))  # This edge causes a cycle
 
         rec_stack.remove(v)
-        return cycle_edges
 
     visited: set[str] = set()
     rec_stack: set[str] = set()
+    cycle_edges: list[tuple[str, str]] = []
 
-    return dfs(entry_point, visited, rec_stack)
+    dfs(entry_point, visited, rec_stack, cycle_edges)
+
+    return cycle_edges
 
 
 def should_continue(yielded_counts: dict[str, int], max_iterations: int | None) -> bool:
@@ -431,13 +435,14 @@ def should_continue(yielded_counts: dict[str, int], max_iterations: int | None) 
 
 
 def find_cycle_vertices(edges):
-    # Create a directed graph from the edges
     graph = nx.DiGraph(edges)
 
-    # Find all simple cycles in the graph
-    cycles = list(nx.simple_cycles(graph))
+    # Initialize a set to collect vertices part of any cycle
+    cycle_vertices = set()
 
-    # Flatten the list of cycles and remove duplicates
-    cycle_vertices = {vertex for cycle in cycles for vertex in cycle}
+    # Utilize the strong component feature in NetworkX to find cycles
+    for component in nx.strongly_connected_components(graph):
+        if len(component) > 1 or graph.has_edge(tuple(component)[0], tuple(component)[0]):  # noqa: RUF015
+            cycle_vertices.update(component)
 
     return sorted(cycle_vertices)
