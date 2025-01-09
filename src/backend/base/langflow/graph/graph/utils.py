@@ -24,7 +24,11 @@ def find_start_component_id(vertices):
 
 def find_last_node(nodes, edges):
     """This function receives a flow and returns the last node."""
-    return next((n for n in nodes if all(e["source"] != n["id"] for e in edges)), None)
+    source_ids = {edge["source"] for edge in edges}
+    for node in nodes:
+        if node["id"] not in source_ids:
+            return node
+    return None
 
 
 def add_parent_node_id(nodes, parent_node_id) -> None:
@@ -142,10 +146,13 @@ def update_target_handle(new_edge, g_nodes):
         dict: The updated edge.
     """
     target_handle = new_edge["data"]["targetHandle"]
-    if target_handle.get("proxy"):
-        proxy_id = target_handle["proxy"]["id"]
-        if node := next((n for n in g_nodes if n["id"] == proxy_id), None):
-            set_new_target_handle(proxy_id, new_edge, target_handle, node)
+    if proxy := target_handle.get("proxy"):
+        proxy_id = proxy["id"]
+        for node in g_nodes:
+            if node["id"] == proxy_id:
+                set_new_target_handle(proxy_id, new_edge, target_handle, node)
+                break
+
     return new_edge
 
 
@@ -173,13 +180,18 @@ def set_new_target_handle(proxy_id, new_edge, target_handle, node) -> None:
         "type": type_,
         "id": proxy_id,
     }
-    if node["data"]["node"].get("flow"):
+
+    node_data = node["data"]["node"]
+    if node_data.get("flow"):
+        field_template_proxy = node_data["template"][field]["proxy"]
         new_target_handle["proxy"] = {
-            "field": node["data"]["node"]["template"][field]["proxy"]["field"],
-            "id": node["data"]["node"]["template"][field]["proxy"]["id"],
+            "field": field_template_proxy["field"],
+            "id": field_template_proxy["id"],
         }
+
     if input_types := target_handle.get("inputTypes"):
         new_target_handle["inputTypes"] = input_types
+
     new_edge["data"]["targetHandle"] = new_target_handle
 
 
@@ -431,13 +443,14 @@ def should_continue(yielded_counts: dict[str, int], max_iterations: int | None) 
 
 
 def find_cycle_vertices(edges):
-    # Create a directed graph from the edges
     graph = nx.DiGraph(edges)
 
-    # Find all simple cycles in the graph
-    cycles = list(nx.simple_cycles(graph))
+    # Initialize a set to collect vertices part of any cycle
+    cycle_vertices = set()
 
-    # Flatten the list of cycles and remove duplicates
-    cycle_vertices = {vertex for cycle in cycles for vertex in cycle}
+    # Utilize the strong component feature in NetworkX to find cycles
+    for component in nx.strongly_connected_components(graph):
+        if len(component) > 1 or graph.has_edge(tuple(component)[0], tuple(component)[0]):  # noqa: RUF015
+            cycle_vertices.update(component)
 
     return sorted(cycle_vertices)
